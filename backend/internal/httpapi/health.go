@@ -14,6 +14,6 @@ func handleHealthz(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	}
 }

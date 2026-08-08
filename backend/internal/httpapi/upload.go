@@ -49,7 +49,7 @@ func handleUpload(pool *pgxpool.Pool, jwtSecret string) http.HandlerFunc {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		defer tx.Rollback(ctx)
+		defer func() { _ = tx.Rollback(ctx) }()
 
 		for _, op := range ops {
 			if _, ok := allowedColumns[op.Table]; !ok {

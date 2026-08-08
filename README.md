@@ -41,6 +41,27 @@ the printed pairing code.
 See [docs/INSTALL-MACOS.md](docs/INSTALL-MACOS.md) if a built `.dmg` is
 blocked by Gatekeeper.
 
+## Formatting & linting
+
+### Backend
+ `gofmt -l .` / [golangci-lint](https://golangci-lint.run) (config
+in `backend/.golangci.yml`)
+
+### Client
+`dart format .` / `flutter analyze`.
+
+### Pre-commit hook
+
+Checks the above on every commit (auto-fixes formatting, blocks on lint
+errors); CI re-checks on every push regardless. Requires
+[lefthook](https://github.com/evilmartians/lefthook) and
+[golangci-lint](https://golangci-lint.run) installed locally:
+
+```
+brew install lefthook golangci-lint   # or see each tool's own install docs
+lefthook install
+```
+
 ## More
 
 - [docs/home-inventory-app-plan.md](docs/home-inventory-app-plan.md) —

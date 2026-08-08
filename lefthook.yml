@@ -1,0 +1,24 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: backend format
+      root: backend/
+      glob: "*.go"
+      run: gofmt -l -w {staged_files} && git add {staged_files}
+      stage_fixed: true
+
+    - name: backend lint
+      root: backend/
+      glob: "*.go"
+      run: golangci-lint run ./...
+
+    - name: client format
+      root: client/
+      glob: "*.dart"
+      run: dart format {staged_files} && git add {staged_files}
+      stage_fixed: true
+
+    - name: client lint
+      root: client/
+      glob: "*.dart"
+      run: flutter analyze
