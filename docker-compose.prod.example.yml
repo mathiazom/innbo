@@ -34,6 +34,9 @@ services:
       POWERSYNC_DB_PASSWORD: ${POWERSYNC_DB_PASSWORD}
       MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-1}
       LISTEN_ADDR: :8080
+      STORAGE_DIR: /data/images
+    volumes:
+      - backend-images:/data/images
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,6 +102,7 @@ services:
 volumes:
   postgres-data:
   mongo-data:
+  backend-images:
 
 networks:
   default:

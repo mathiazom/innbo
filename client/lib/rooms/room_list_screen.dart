@@ -3,14 +3,16 @@ import 'package:powersync/powersync.dart';
 import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
+import '../device_credentials.dart';
 import '../items/item_list_screen.dart';
 
 const _uuid = Uuid();
 
 class RoomListScreen extends StatelessWidget {
   final PowerSyncDatabase db;
+  final DeviceCredentials credentials;
 
-  const RoomListScreen({super.key, required this.db});
+  const RoomListScreen({super.key, required this.db, required this.credentials});
 
   Future<void> _addRoom(BuildContext context) async {
     final controller = TextEditingController();
@@ -64,8 +66,12 @@ class RoomListScreen extends StatelessWidget {
                 title: Text(name),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ItemListScreen(db: db, roomId: id, roomName: name),
+                    builder: (_) => ItemListScreen(
+                      db: db,
+                      credentials: credentials,
+                      roomId: id,
+                      roomName: name,
+                    ),
                   ),
                 ),
               );
