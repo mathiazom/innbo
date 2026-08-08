@@ -95,7 +95,7 @@ func encodeTo(path string, img image.Image, opts ...imaging.EncodeOption) error 
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return imaging.Encode(f, img, imaging.JPEG, opts...)
 }
 
@@ -122,7 +122,7 @@ func handleImageDownload(pool *pgxpool.Pool, jwtSecret, storageDir, variant stri
 			http.NotFound(w, r)
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		http.ServeContent(w, r, variant, time.Time{}, f)
 	}
