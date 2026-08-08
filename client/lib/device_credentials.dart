@@ -34,12 +34,15 @@ class DeviceCredentials {
   static const _keyDeviceId = 'device_id';
   static const _keyDeviceSecret = 'device_secret';
 
+  // readAll() is avoided: on macOS with usesDataProtectionKeychain: false,
+  // the legacy keychain rejects kSecReturnData combined with
+  // kSecMatchLimitAll (which readAll always sets), failing every call
+  // with -50 regardless of what's stored.
   static Future<DeviceCredentials?> read() async {
-    final values = await _storage.readAll();
-    final serverUrl = values[_keyServerUrl];
-    final powerSyncUrl = values[_keyPowerSyncUrl];
-    final deviceId = values[_keyDeviceId];
-    final deviceSecret = values[_keyDeviceSecret];
+    final serverUrl = await _storage.read(key: _keyServerUrl);
+    final powerSyncUrl = await _storage.read(key: _keyPowerSyncUrl);
+    final deviceId = await _storage.read(key: _keyDeviceId);
+    final deviceSecret = await _storage.read(key: _keyDeviceSecret);
     if (serverUrl == null ||
         powerSyncUrl == null ||
         deviceId == null ||
