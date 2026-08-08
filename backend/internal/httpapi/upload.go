@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -26,11 +28,12 @@ type crudOp struct {
 // table, since column names in a PATCH's data map come from client input
 // and must never be interpolated into SQL unchecked.
 var allowedColumns = map[string][]string{
-	"room": {"name"},
-	"item": {"name", "room_id"},
+	"room":  {"name"},
+	"item":  {"name", "room_id"},
+	"image": {"item_id", "created_at"},
 }
 
-func handleUpload(pool *pgxpool.Pool, jwtSecret string) http.HandlerFunc {
+func handleUpload(pool *pgxpool.Pool, jwtSecret, storageDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := bearerDeviceID(r, jwtSecret); err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -51,12 +54,13 @@ func handleUpload(pool *pgxpool.Pool, jwtSecret string) http.HandlerFunc {
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
 
+		var pendingImageDeletes []string
 		for _, op := range ops {
 			if _, ok := allowedColumns[op.Table]; !ok {
 				http.Error(w, fmt.Sprintf("unknown table %q", op.Table), http.StatusBadRequest)
 				return
 			}
-			if err := applyOp(ctx, tx, op); err != nil {
+			if err := applyOp(ctx, tx, op, &pendingImageDeletes); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -67,19 +71,30 @@ func handleUpload(pool *pgxpool.Pool, jwtSecret string) http.HandlerFunc {
 			return
 		}
 
+		// Best-effort: the row is already gone regardless of whether the
+		// blob cleanup below succeeds.
+		for _, id := range pendingImageDeletes {
+			_ = os.RemoveAll(filepath.Join(storageDir, id))
+		}
+
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-func applyOp(ctx context.Context, tx pgx.Tx, op crudOp) error {
+func applyOp(ctx context.Context, tx pgx.Tx, op crudOp, pendingImageDeletes *[]string) error {
 	switch op.Op {
 	case "PUT":
 		return applyPut(ctx, tx, op)
 	case "PATCH":
 		return applyPatch(ctx, tx, op)
 	case "DELETE":
-		_, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s WHERE id = $1`, op.Table), op.ID)
-		return err
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s WHERE id = $1`, op.Table), op.ID); err != nil {
+			return err
+		}
+		if op.Table == "image" {
+			*pendingImageDeletes = append(*pendingImageDeletes, op.ID)
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown op %q", op.Op)
 	}

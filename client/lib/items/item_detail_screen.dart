@@ -6,19 +6,23 @@ import 'package:powersync/powersync.dart' hide Column;
 import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
+import '../device_credentials.dart';
 import 'image_store.dart';
+import 'image_sync.dart';
 
 const _uuid = Uuid();
 final _picker = ImagePicker();
 
 class ItemDetailScreen extends StatelessWidget {
   final PowerSyncDatabase db;
+  final DeviceCredentials credentials;
   final String itemId;
   final String itemName;
 
   const ItemDetailScreen({
     super.key,
     required this.db,
+    required this.credentials,
     required this.itemId,
     required this.itemName,
   });
@@ -26,16 +30,24 @@ class ItemDetailScreen extends StatelessWidget {
   Future<void> _addImage(BuildContext context, ImageSource source) async {
     final picked = await _picker.pickImage(source: source);
     if (picked == null) return;
-    final fileName = await ImageStore.save(File(picked.path));
+    final id = _uuid.v4();
+    await ImageStore.saveFull(id, File(picked.path));
     await db.execute(
-      'INSERT INTO image (id, item_id, file_name, created_at) VALUES (?, ?, ?, ?)',
-      [
-        _uuid.v4(),
-        itemId,
-        fileName,
-        DateTime.now().millisecondsSinceEpoch,
-      ],
+      'INSERT INTO image (id, item_id, created_at) VALUES (?, ?, ?)',
+      [id, itemId, DateTime.now().millisecondsSinceEpoch],
     );
+    final uploaded = await ImageSync.uploadFull(credentials, id);
+    if (!uploaded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Kunne ikke laste opp bildet.'),
+          action: SnackBarAction(
+            label: 'Prøv igjen',
+            onPressed: () => ImageSync.uploadFull(credentials, id),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _pickAndAddImage(BuildContext context) async {
@@ -67,9 +79,18 @@ class ItemDetailScreen extends StatelessWidget {
     await _addImage(context, source);
   }
 
-  Future<void> _viewImage(BuildContext context, String fileName) async {
-    final file = await ImageStore.file(fileName);
+  Future<void> _viewImage(BuildContext context, String imageId) async {
+    // Backstop: whatever ImageSync does internally, the UI must never
+    // wait forever for it.
+    final file = await ImageSync.ensureLocalFull(credentials, imageId)
+        .timeout(const Duration(seconds: 20), onTimeout: () => null);
     if (!context.mounted) return;
+    if (file == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Kunne ikke hente bildet.')));
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
@@ -85,11 +106,7 @@ class ItemDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _deleteImage(
-    BuildContext context,
-    String id,
-    String fileName,
-  ) async {
+  Future<void> _deleteImage(BuildContext context, String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -108,7 +125,7 @@ class ItemDetailScreen extends StatelessWidget {
     );
     if (confirmed != true) return;
     await db.execute('DELETE FROM image WHERE id = ?', [id]);
-    await ImageStore.delete(fileName);
+    await ImageStore.delete(id);
   }
 
   @override
@@ -117,7 +134,7 @@ class ItemDetailScreen extends StatelessWidget {
       appBar: AppBar(title: Text(itemName)),
       body: StreamBuilder<ResultSet>(
         stream: db.watch(
-          'SELECT id, file_name FROM image WHERE item_id = ? ORDER BY created_at ASC',
+          'SELECT id FROM image WHERE item_id = ? ORDER BY created_at ASC',
           parameters: [itemId],
         ),
         builder: (context, snapshot) {
@@ -135,18 +152,24 @@ class ItemDetailScreen extends StatelessWidget {
             itemCount: rows.length,
             itemBuilder: (context, index) {
               final id = rows[index]['id'] as String;
-              final fileName = rows[index]['file_name'] as String;
               return GestureDetector(
-                onTap: () => _viewImage(context, fileName),
-                onLongPress: () => _deleteImage(context, id, fileName),
-                child: FutureBuilder<File>(
-                  future: ImageStore.file(fileName),
+                onTap: () => _viewImage(context, id),
+                onLongPress: () => _deleteImage(context, id),
+                child: FutureBuilder<File?>(
+                  future: ImageSync.ensureLocalThumbnail(credentials, id),
                   builder: (context, snapshot) {
                     final file = snapshot.data;
                     if (file == null) return const SizedBox.shrink();
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(file, fit: BoxFit.cover),
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.cover,
+                        // The file may be a full-res original (see
+                        // ImageSync.ensureLocalThumbnail) — decode at
+                        // roughly grid-cell size, not full resolution.
+                        cacheWidth: 300,
+                      ),
                     );
                   },
                 ),

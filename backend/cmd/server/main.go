@@ -42,6 +42,10 @@ func runServer() error {
 		return err
 	}
 
+	if err := os.MkdirAll(cfg.StorageDir, 0o755); err != nil {
+		return err
+	}
+
 	if password := os.Getenv("POWERSYNC_DB_PASSWORD"); password != "" {
 		if err := db.SetPowersyncReplPassword(ctx, pool, password); err != nil {
 			return err
@@ -52,6 +56,7 @@ func runServer() error {
 		Pool:             pool,
 		JWTSecret:        cfg.JWTSecret,
 		MinClientVersion: cfg.MinClientVersion,
+		StorageDir:       cfg.StorageDir,
 	})
 	log.Printf("listening on %s", cfg.ListenAddr)
 	return http.ListenAndServe(cfg.ListenAddr, router)

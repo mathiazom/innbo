@@ -5,19 +5,22 @@ import 'package:powersync/powersync.dart';
 import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
-import 'image_store.dart';
+import '../device_credentials.dart';
+import 'image_sync.dart';
 import 'item_detail_screen.dart';
 
 const _uuid = Uuid();
 
 class ItemListScreen extends StatelessWidget {
   final PowerSyncDatabase db;
+  final DeviceCredentials credentials;
   final String roomId;
   final String roomName;
 
   const ItemListScreen({
     super.key,
     required this.db,
+    required this.credentials,
     required this.roomId,
     required this.roomName,
   });
@@ -62,7 +65,7 @@ class ItemListScreen extends StatelessWidget {
         stream: db.watch(
           '''
           SELECT item.id, item.name,
-            (SELECT file_name FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_file_name
+            (SELECT id FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_image_id
           FROM item WHERE room_id = ? ORDER BY name
           ''',
           parameters: [roomId],
@@ -77,12 +80,15 @@ class ItemListScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final id = rows[index]['id'] as String;
               final name = rows[index]['name'] as String;
-              final coverFileName = rows[index]['cover_file_name'] as String?;
+              final coverImageId = rows[index]['cover_image_id'] as String?;
               return ListTile(
-                leading: coverFileName == null
+                leading: coverImageId == null
                     ? null
-                    : FutureBuilder<File>(
-                        future: ImageStore.file(coverFileName),
+                    : FutureBuilder<File?>(
+                        future: ImageSync.ensureLocalThumbnail(
+                          credentials,
+                          coverImageId,
+                        ),
                         builder: (context, snapshot) {
                           final file = snapshot.data;
                           if (file == null) return const SizedBox.shrink();
@@ -93,6 +99,10 @@ class ItemListScreen extends StatelessWidget {
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
+                              // The file may be a full-res original (see
+                              // ImageSync.ensureLocalThumbnail) — decode
+                              // at display size, not full resolution.
+                              cacheWidth: 96,
                             ),
                           );
                         },
@@ -100,8 +110,12 @@ class ItemListScreen extends StatelessWidget {
                 title: Text(name),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) =>
-                        ItemDetailScreen(db: db, itemId: id, itemName: name),
+                    builder: (context) => ItemDetailScreen(
+                      db: db,
+                      credentials: credentials,
+                      itemId: id,
+                      itemName: name,
+                    ),
                   ),
                 ),
               );

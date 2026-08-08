@@ -11,6 +11,7 @@ type Config struct {
 	JWTSecret        string
 	ListenAddr       string
 	MinClientVersion int64
+	StorageDir       string
 }
 
 func Load() (Config, error) {
@@ -24,6 +25,7 @@ func Load() (Config, error) {
 		JWTSecret:        os.Getenv("JWT_SECRET"),
 		ListenAddr:       envOr("LISTEN_ADDR", ":8080"),
 		MinClientVersion: minClientVersion,
+		StorageDir:       envOr("STORAGE_DIR", "/data/images"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")

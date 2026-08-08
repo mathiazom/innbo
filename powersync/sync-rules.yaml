@@ -5,3 +5,4 @@ bucket_definitions:
     data:
       - SELECT * FROM room
       - SELECT * FROM item
+      - SELECT * FROM image

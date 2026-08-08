@@ -25,6 +25,7 @@ class InnboApp extends StatefulWidget {
 
 class _InnboAppState extends State<InnboApp> {
   PowerSyncDatabase? _db;
+  DeviceCredentials? _credentials;
   bool _loading = true;
 
   @override
@@ -58,7 +59,10 @@ class _InnboAppState extends State<InnboApp> {
     );
     await db.connect(connector: connector);
 
-    setState(() => _db = db);
+    setState(() {
+      _db = db;
+      _credentials = credentials;
+    });
   }
 
   void _onPaired(DeviceCredentials credentials) {
@@ -77,7 +81,7 @@ class _InnboAppState extends State<InnboApp> {
       home: _loading
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : (_db != null
-                ? RoomListScreen(db: _db!)
+                ? RoomListScreen(db: _db!, credentials: _credentials!)
                 : PairingScreen(onPaired: _onPaired)),
     );
   }
