@@ -1,11 +1,14 @@
 name: Client artifacts
 
-# Tag-triggered only — these builds are heavy, and a released version is
-# the point where we actually want a signed/reproducible APK + .dmg, not
-# on every push.
+# Release-triggered only — these builds are heavy, and a released version
+# is the point where we actually want a signed/reproducible APK + .dmg, not
+# on every push. Deliberately `release: published`, not `push: tags` — a
+# tag created as part of publishing a release (e.g. via `gh release
+# create`, as scripts/release.sh does) doesn't reliably fire a `push`
+# event, only `release`.
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
 
 jobs:
   android:
@@ -15,6 +18,8 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - uses: actions/setup-java@v4
         with:
@@ -29,9 +34,10 @@ jobs:
 
       # Release signing: see android/key.properties.example and
       # android/app/build.gradle.kts. Without these secrets set, the build
-      # falls back to debug signing (fine for local dev, not for a
-      # distributable release — see the "APK signing" discussion in the
-      # v0 build history for why that matters for in-place updates).
+      # falls back to debug signing, which uses a different random key on
+      # every CI run — Android then refuses to install the new APK over an
+      # existing install (different signature), forcing an uninstall that
+      # wipes local data.
       - name: Write release keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/innbo-release.keystore
 
@@ -48,6 +54,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name }}
           files: client/build/app/outputs/flutter-apk/app-release.apk
 
   macos:
@@ -57,6 +64,8 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - uses: subosito/flutter-action@v2
         with:
@@ -76,4 +85,5 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name }}
           files: client/Innbo.dmg
