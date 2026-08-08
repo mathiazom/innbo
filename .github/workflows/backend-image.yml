@@ -4,7 +4,12 @@ on:
   push:
     branches: [main]
     paths: ["backend/**", ".github/workflows/backend-image.yml"]
-    tags: ["v*"]
+  # Deliberately `release: published`, not `push: tags` — a tag created as
+  # part of publishing a release (e.g. via `gh release create`, as
+  # scripts/release.sh does) doesn't reliably fire a `push` event, only
+  # `release`. See client-artifacts.yml for the same reasoning.
+  release:
+    types: [published]
 
 jobs:
   build-and-push:
@@ -14,6 +19,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
 
       - uses: docker/login-action@v3
         with:
@@ -28,7 +35,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
-            type=ref,event=tag
+            type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
 
       - uses: docker/build-push-action@v6
         with:
