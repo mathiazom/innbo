@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart';
 import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
+
+import 'image_store.dart';
+import 'item_detail_screen.dart';
 
 const _uuid = Uuid();
 
@@ -55,7 +60,11 @@ class ItemListScreen extends StatelessWidget {
       appBar: AppBar(title: Text(roomName)),
       body: StreamBuilder<ResultSet>(
         stream: db.watch(
-          'SELECT id, name FROM item WHERE room_id = ? ORDER BY name',
+          '''
+          SELECT item.id, item.name,
+            (SELECT file_name FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_file_name
+          FROM item WHERE room_id = ? ORDER BY name
+          ''',
           parameters: [roomId],
         ),
         builder: (context, snapshot) {
@@ -66,8 +75,36 @@ class ItemListScreen extends StatelessWidget {
           return ListView.builder(
             itemCount: rows.length,
             itemBuilder: (context, index) {
+              final id = rows[index]['id'] as String;
               final name = rows[index]['name'] as String;
-              return ListTile(title: Text(name));
+              final coverFileName = rows[index]['cover_file_name'] as String?;
+              return ListTile(
+                leading: coverFileName == null
+                    ? null
+                    : FutureBuilder<File>(
+                        future: ImageStore.file(coverFileName),
+                        builder: (context, snapshot) {
+                          final file = snapshot.data;
+                          if (file == null) return const SizedBox.shrink();
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.file(
+                              file,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        },
+                      ),
+                title: Text(name),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ItemDetailScreen(db: db, itemId: id, itemName: name),
+                  ),
+                ),
+              );
             },
           );
         },
