@@ -5,7 +5,12 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
+//
+// Debug/Profile get a "(dev)" suffix so it's visually obvious which build
+// you're looking at, alongside the distinct bundle id below.
 PRODUCT_NAME = Innbo
+PRODUCT_NAME[config=Debug] = Innbo (dev)
+PRODUCT_NAME[config=Profile] = Innbo (dev)
 
 // The application's bundle identifier
 //

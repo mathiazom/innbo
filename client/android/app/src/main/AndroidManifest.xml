@@ -3,7 +3,7 @@
          release builds are what actually get sideloaded per the plan. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Innbo"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
