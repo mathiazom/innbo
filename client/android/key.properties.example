@@ -1,0 +1,4 @@
+storePassword=changeme
+keyPassword=changeme
+keyAlias=innbo
+storeFile=innbo-release.keystore

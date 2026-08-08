@@ -1,0 +1,89 @@
+# Local development stack: builds the backend from source, no external
+# network dependency. For a self-hosted deploy, see
+# docker-compose.prod.example.yml instead.
+services:
+  postgres:
+    image: postgres:16
+    command: ["postgres", "-c", "wal_level=logical"]
+    environment:
+      POSTGRES_USER: innbo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: innbo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U innbo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://innbo:${POSTGRES_PASSWORD}@postgres:5432/innbo
+      JWT_SECRET: ${JWT_SECRET}
+      POWERSYNC_DB_PASSWORD: ${POWERSYNC_DB_PASSWORD}
+      MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-1}
+      LISTEN_ADDR: :8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/server", "healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # PowerSync's MongoDB bucket storage uses transactions, which MongoDB
+  # only allows on a replica set (even a single-node one) — plain
+  # standalone mongod fails with "Transaction numbers are only allowed on
+  # a replica set member or mongos". mongo-rs-init below is a one-shot
+  # sidecar that initiates that replica set, matching PowerSync's own
+  # self-host-demo reference setup.
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all", "--quiet"]
+    volumes:
+      - mongo-data:/data/db
+
+  mongo-rs-init:
+    image: mongo:7
+    depends_on:
+      - mongo
+    restart: on-failure
+    entrypoint:
+      - bash
+      - -c
+      - >
+        mongosh --host mongo:27017 --eval
+        'try{rs.status().ok && quit(0)} catch {}
+        rs.initiate({_id: "rs0", version: 1, members: [{ _id: 0, host: "mongo:27017" }]})'
+
+  powersync:
+    image: journeyapps/powersync-service:latest
+    command: ["start", "-r", "unified"]
+    ports:
+      - "8081:8081"
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/config.yaml
+      PS_DATA_SOURCE_URI: postgres://powersync_repl:${POWERSYNC_DB_PASSWORD}@postgres:5432/innbo
+      PS_MONGO_URI: mongodb://mongo:27017/powersync
+      PS_PORT: "8081"
+      PS_JWT_SECRET: ${JWT_SECRET}
+      PS_ADMIN_TOKEN: ${POWERSYNC_ADMIN_TOKEN}
+    volumes:
+      - ./powersync:/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo-rs-init:
+        condition: service_completed_successfully
+    # No healthcheck yet — PowerSync's own health-check endpoint path
+    # wasn't confirmed against current docs; check `docker compose logs
+    # powersync` directly for now (see verification steps).
+
+volumes:
+  postgres-data:
+  mongo-data:

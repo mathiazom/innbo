@@ -1,0 +1,11 @@
+.idea
+.env
+
+# Go
+backend/server
+
+# Flutter
+client/.dart_tool/
+client/build/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies

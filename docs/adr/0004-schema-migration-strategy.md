@@ -1,0 +1,7 @@
+---
+status: accepted
+---
+
+# Client schema migrations wipe and re-sync, guarded by a manual pre-migration sync check, a server-side version gate, and a client-side unsynced-changes guard
+
+Given a single household with a handful of devices under direct control and no auto-update, we accept breaking Postgres schema changes rather than designing for mixed old-client/new-schema compatibility — devices are simply kept up to date together. Rather than writing in-place local SQLite migrations, an app update that bumps the schema version wipes its local PowerSync database and does a full fresh re-sync from the server, since the server is the source of truth and a home inventory's data volume is small. The risk this creates — an old-version device with unsynced local writes losing them on wipe — is handled two ways: operationally, before deploying a breaking migration, every device is opened once to confirm its PowerSync upload queue is empty; and in code, as a safety net for a forgotten device — the server rejects connections from clients reporting an outdated schema/app version (HTTP 426) rather than letting them silently write against a schema they don't match, and the client (`lib/sync/unsynced_changes_guard.dart`) reacts to that rejection by checking its own local upload queue and, if non-empty, blocking with an explicit "discard and continue" vs. "close without syncing" choice rather than ever wiping data without the user knowing.

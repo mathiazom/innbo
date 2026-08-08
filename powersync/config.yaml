@@ -1,0 +1,37 @@
+# Self-hosted PowerSync service config. See
+# https://docs.powersync.com/configuration/powersync-service/self-hosted-instances
+# `!env NAME` is PowerSync's own YAML tag for env var substitution — by
+# convention (matching PowerSync's own examples) every substituted var here
+# is prefixed PS_.
+_type: self-hosted
+
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      sslmode: disable
+
+storage:
+  type: mongodb
+  uri: !env PS_MONGO_URI
+
+port: !env PS_PORT
+
+sync_config:
+  path: sync-rules.yaml
+
+client_auth:
+  # HS256 shared secret with the Go backend (same JWT_SECRET value,
+  # base64url-encoded — see internal/auth/jwt.go's decodeHS256Secret for
+  # why it must already be base64url, not re-encoded here).
+  jwks:
+    keys:
+      - kty: oct
+        alg: HS256
+        k: !env PS_JWT_SECRET
+        kid: innbo-hs256
+  audience: [innbo-powersync]
+
+api:
+  tokens:
+    - !env PS_ADMIN_TOKEN
