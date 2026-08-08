@@ -1,0 +1,14 @@
+# Main/release app icon — the real logo (see
+# docs/home-inventory-app-plan.md's Branding section). macOS is only
+# generated here, not in flutter_launcher_icons-debug.yaml: the tool
+# writes macOS icons to a single fixed AppIcon.appiconset regardless of
+# flavor, so putting a macos: block in more than one flavor file would
+# make the last one processed silently win.
+flutter_launcher_icons:
+  android: true
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#F3E5D3"
+  adaptive_icon_foreground: assets/icon/icon.png
+  macos:
+    generate: true
+    image_path: assets/icon/icon.png
