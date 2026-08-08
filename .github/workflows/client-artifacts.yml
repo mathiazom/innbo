@@ -18,6 +18,8 @@ on:
 jobs:
   android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: client
@@ -64,6 +66,8 @@ jobs:
 
   macos:
     runs-on: macos-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: client
