@@ -1,0 +1,14 @@
+# Debug/dev app icon (the "(dev)" labeling) — Android only. Generates
+# into android/app/src/debug/res/, which Gradle's debug build type
+# already merges over src/main/res (same mechanism used for the debug
+# app_name string resource).
+#
+# No macos: block here — see flutter_launcher_icons-main.yaml for why.
+# macOS's dev icon (AppIcon-Dev.appiconset) is regenerated separately by
+# scripts/generate_icons.sh, since flutter_launcher_icons has no way to
+# target it.
+flutter_launcher_icons:
+  android: true
+  image_path: assets/icon/logo_dev.png
+  adaptive_icon_background: "#F3E5D3"
+  adaptive_icon_foreground: assets/icon/logo_dev.png

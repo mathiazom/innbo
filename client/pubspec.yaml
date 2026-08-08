@@ -54,25 +54,14 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
-# App icon generation: `dart run flutter_launcher_icons` regenerates
-# platform icon sets from assets/icon/icon.png (the logo — see
-# docs/home-inventory-app-plan.md's Branding section). Android gets an
-# adaptive icon since the logo has a transparent background; macOS uses
-# the flat image directly.
-#
-# This tool doesn't know about the separate debug/dev app icon (the "(dev)"
-# labeling — see macos/Runner/Configs/AppInfo.xcconfig and
-# android/app/build.gradle.kts) — that one is hand-generated from
-# logo_dev.png into macos/Runner/Assets.xcassets/AppIcon-Dev.appiconset and
-# android/app/src/debug/res/{mipmap,drawable}-*/. Re-running this command
-# only touches the main/release icon.
-flutter_launcher_icons:
-  image_path: "assets/icon/icon.png"
-  macos:
-    generate: true
-  android: true
-  adaptive_icon_background: "#F3E5D3"
-  adaptive_icon_foreground: "assets/icon/icon.png"
+# App icon generation: run `scripts/generate_icons.sh` to regenerate all
+# platform icon sets (main from assets/icon/icon.png, debug/dev from
+# assets/icon/logo_dev.png — the "(dev)" labeling, see
+# macos/Runner/Configs/AppInfo.xcconfig and android/app/build.gradle.kts).
+# Config lives in flutter_launcher_icons-main.yaml/-debug.yaml (flavor
+# files — see flutter_launcher_icons' own flavor support) rather than
+# here, since flutter_launcher_icons ignores this pubspec.yaml block
+# entirely once any flavor file is present.
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
