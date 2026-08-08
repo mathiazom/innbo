@@ -1,0 +1,7 @@
+# Single global bucket: every paired device has full access to everything
+# (see CONTEXT.md — Household, single-tenant, no per-user partitioning).
+bucket_definitions:
+  global:
+    data:
+      - SELECT * FROM room
+      - SELECT * FROM item

@@ -1,0 +1,79 @@
+name: Client artifacts
+
+# Tag-triggered only — these builds are heavy, and a released version is
+# the point where we actually want a signed/reproducible APK + .dmg, not
+# on every push.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.8"
+
+      - run: flutter pub get
+
+      # Release signing: see android/key.properties.example and
+      # android/app/build.gradle.kts. Without these secrets set, the build
+      # falls back to debug signing (fine for local dev, not for a
+      # distributable release — see the "APK signing" discussion in the
+      # v0 build history for why that matters for in-place updates).
+      - name: Write release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/innbo-release.keystore
+
+      - name: Write key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=innbo-release.keystore
+          EOF
+
+      - run: flutter build apk --release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: client/build/app/outputs/flutter-apk/app-release.apk
+
+  macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.8"
+
+      - run: flutter pub get
+
+      - run: flutter build macos --release
+
+      # Unsigned/not notarized for v0 — Gatekeeper will warn on install.
+      # See docs/INSTALL-MACOS.md for the one-time workaround.
+      - name: Package .dmg
+        run: |
+          hdiutil create -volname Innbo \
+            -srcfolder build/macos/Build/Products/Release/Innbo.app \
+            -ov -format UDZO Innbo.dmg
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: client/Innbo.dmg
