@@ -21,7 +21,13 @@ class DeviceCredentials {
     required this.deviceSecret,
   });
 
-  static const _storage = FlutterSecureStorage();
+  // useDataProtectionKeychain: false — the default Data Protection Keychain
+  // requires the app be signed with a real Team ID, which an unsigned
+  // .dmg (see docs/INSTALL-MACOS.md) never has, causing every read/write
+  // to fail with -34018 regardless of sandboxing or entitlements.
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(useDataProtectionKeychain: false),
+  );
   static const _keyServerUrl = 'server_url';
   static const _keyPowerSyncUrl = 'powersync_url';
   static const _keyDeviceId = 'device_id';
