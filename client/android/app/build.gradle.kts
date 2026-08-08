@@ -64,6 +64,13 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+        // Distinct applicationId so a locally-run dev/debug build is a
+        // separate app to Android from the installed release build —
+        // otherwise they'd share the same app-data directory (and can't
+        // even be installed side by side).
+        debug {
+            applicationIdSuffix = ".dev"
+        }
     }
 }
 
