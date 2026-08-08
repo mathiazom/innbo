@@ -17,7 +17,7 @@ for everything after it, per the full scope in
 - [ ] Dispose action (soft-delete, `disposed_at`)
 - [ ] Delete action (hard-delete, erases history)
 - [ ] `item_history` audit trail — see [ADR-0002](adr/0002-item-history-audit-trail.md)
-- [ ] `image` + cover image handling
+- [x] `image` + cover image handling (local attach/view/delete only — see "Image upload/download API design" below for cross-device sync)
 
 ## Platform / infra
 
