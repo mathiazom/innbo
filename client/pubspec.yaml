@@ -59,6 +59,13 @@ dev_dependencies:
 # docs/home-inventory-app-plan.md's Branding section). Android gets an
 # adaptive icon since the logo has a transparent background; macOS uses
 # the flat image directly.
+#
+# This tool doesn't know about the separate debug/dev app icon (the "(dev)"
+# labeling — see macos/Runner/Configs/AppInfo.xcconfig and
+# android/app/build.gradle.kts) — that one is hand-generated from
+# logo_dev.png into macos/Runner/Assets.xcassets/AppIcon-Dev.appiconset and
+# android/app/src/debug/res/{mipmap,drawable}-*/. Re-running this command
+# only touches the main/release icon.
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
   macos:
