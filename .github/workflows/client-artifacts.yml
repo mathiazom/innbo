@@ -82,7 +82,14 @@ jobs:
 
       - run: flutter pub get
 
+      # CI has no Apple Developer Team/certificate — disable signing
+      # rather than relying on automatic signing (which only works where
+      # a Team is selected locally, e.g. a developer's own Mac).
       - run: flutter build macos --release
+        env:
+          CODE_SIGNING_ALLOWED: "NO"
+          CODE_SIGNING_REQUIRED: "NO"
+          CODE_SIGN_IDENTITY: "-"
 
       # Unsigned/not notarized for v0 — Gatekeeper will warn on install.
       # See docs/INSTALL-MACOS.md for the one-time workaround.
