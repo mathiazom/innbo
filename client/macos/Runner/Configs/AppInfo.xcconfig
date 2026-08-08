@@ -8,7 +8,14 @@
 PRODUCT_NAME = Innbo
 
 // The application's bundle identifier
+//
+// Debug/Profile get a distinct suffix so a locally-run dev build is a
+// completely separate app to macOS from the installed release build —
+// otherwise they'd share the same Application Support directory (local
+// PowerSync database, Keychain items) and silently overwrite each other.
 PRODUCT_BUNDLE_IDENTIFIER = be.biku.innbo
+PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = be.biku.innbo.dev
+PRODUCT_BUNDLE_IDENTIFIER[config=Profile] = be.biku.innbo.dev
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 be.biku. All rights reserved.
