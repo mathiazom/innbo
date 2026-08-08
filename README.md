@@ -1,6 +1,8 @@
-# 📦 Innbo
+# innbo
 
-A personal home-inventory app
+a personal home-inventory app
+
+<img src="logo.png" alt="hugg" width="100"/>
 
 ## Prerequisites
 
