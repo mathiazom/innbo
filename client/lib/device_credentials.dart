@@ -21,10 +21,11 @@ class DeviceCredentials {
     required this.deviceSecret,
   });
 
-  // useDataProtectionKeychain: false — the default Data Protection Keychain
-  // requires the app be signed with a real Team ID, which an unsigned
-  // .dmg (see docs/INSTALL-MACOS.md) never has, causing every read/write
-  // to fail with -34018 regardless of sandboxing or entitlements.
+  // The default macOS Keychain backend requires the app be signed with a
+  // real Team ID, which an unsigned .dmg (see docs/INSTALL-MACOS.md)
+  // never has, causing every read/write to fail with -34018 regardless
+  // of sandboxing or entitlements — opt into the legacy (non-Team-ID)
+  // Keychain backend instead.
   static const _storage = FlutterSecureStorage(
     mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
