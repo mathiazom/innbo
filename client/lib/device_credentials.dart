@@ -26,7 +26,7 @@ class DeviceCredentials {
   // .dmg (see docs/INSTALL-MACOS.md) never has, causing every read/write
   // to fail with -34018 regardless of sandboxing or entitlements.
   static const _storage = FlutterSecureStorage(
-    mOptions: MacOsOptions(useDataProtectionKeychain: false),
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
   static const _keyServerUrl = 'server_url';
   static const _keyPowerSyncUrl = 'powersync_url';
