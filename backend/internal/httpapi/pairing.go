@@ -33,7 +33,7 @@ func handlePairingExchange(pool *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		defer tx.Rollback(ctx)
+		defer func() { _ = tx.Rollback(ctx) }()
 
 		var expiresAt time.Time
 		var usedAt *time.Time
@@ -92,5 +92,5 @@ func handlePairingExchange(pool *pgxpool.Pool) http.HandlerFunc {
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	_ = json.NewEncoder(w).Encode(body)
 }
