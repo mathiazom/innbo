@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart';
 import 'package:uuid/uuid.dart';
 
+import '../about_dialog.dart';
 import '../device_credentials.dart';
 import '../items/item_list_screen.dart';
 import '../powersync/synced_list_view.dart';
@@ -52,7 +53,12 @@ class RoomListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Rom')),
+      appBar: AppBar(
+        title: GestureDetector(
+          onTap: () => showAboutAppDialog(context, credentials.serverUrl),
+          child: Image.asset('assets/icon/icon.png', height: 32),
+        ),
+      ),
       body: SyncedListView(
         db: db,
         query: db.watch('SELECT id, name FROM room ORDER BY name'),
