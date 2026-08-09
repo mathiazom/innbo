@@ -21,6 +21,7 @@ Future<void> handleUpdateRequired(
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Oppdatering kreves'),
         content: const Text(
@@ -29,8 +30,8 @@ Future<void> handleUpdateRequired(
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            onPressed: () => SystemNavigator.pop(),
+            child: const Text('Avslutt'),
           ),
         ],
       ),
