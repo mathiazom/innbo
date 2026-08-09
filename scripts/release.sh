@@ -25,6 +25,13 @@ echo "Next release:   ${next}"
 read -rp "Create and push ${next}? [y/N] " confirm
 [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
 
+pubspec="$(dirname "$0")/../client/pubspec.yaml"
+build_number=$(($(grep -o '+[0-9]*$' "$pubspec") + 1))
+perl -i -pe "s/^version: .*/version: ${major}.${minor}.${patch}+${build_number}/" "$pubspec"
+git -C "$(dirname "$0")/.." add client/pubspec.yaml
+git -C "$(dirname "$0")/.." commit -m "chore(client): bump version to ${major}.${minor}.${patch}+${build_number}"
+git -C "$(dirname "$0")/.." push
+
 gh release create "$next" --generate-notes
 
 echo "${next} pushed — GitHub Actions will build and attach the backend image + client artifacts."
