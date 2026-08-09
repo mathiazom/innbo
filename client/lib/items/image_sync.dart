@@ -104,7 +104,12 @@ class ImageSync {
   ) async {
     final full = await ImageStore.localFullFile(imageId);
     if (await full.exists() && await full.length() > 0) return full;
-    return _ensureLocal(credentials, imageId, 'thumbnail', ImageStore.localThumbFile);
+    return _ensureLocal(
+      credentials,
+      imageId,
+      'thumbnail',
+      ImageStore.localThumbFile,
+    );
   }
 
   static Future<File?> ensureLocalFull(

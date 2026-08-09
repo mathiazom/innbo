@@ -12,7 +12,11 @@ class RoomListScreen extends StatelessWidget {
   final PowerSyncDatabase db;
   final DeviceCredentials credentials;
 
-  const RoomListScreen({super.key, required this.db, required this.credentials});
+  const RoomListScreen({
+    super.key,
+    required this.db,
+    required this.credentials,
+  });
 
   Future<void> _addRoom(BuildContext context) async {
     final controller = TextEditingController();

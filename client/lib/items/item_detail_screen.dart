@@ -82,8 +82,10 @@ class ItemDetailScreen extends StatelessWidget {
   Future<void> _viewImage(BuildContext context, String imageId) async {
     // Backstop: whatever ImageSync does internally, the UI must never
     // wait forever for it.
-    final file = await ImageSync.ensureLocalFull(credentials, imageId)
-        .timeout(const Duration(seconds: 20), onTimeout: () => null);
+    final file = await ImageSync.ensureLocalFull(
+      credentials,
+      imageId,
+    ).timeout(const Duration(seconds: 20), onTimeout: () => null);
     if (!context.mounted) return;
     if (file == null) {
       ScaffoldMessenger.of(
@@ -97,9 +99,7 @@ class ItemDetailScreen extends StatelessWidget {
           backgroundColor: Colors.black,
           body: GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: Center(
-              child: InteractiveViewer(child: Image.file(file)),
-            ),
+            child: Center(child: InteractiveViewer(child: Image.file(file))),
           ),
         ),
       ),

@@ -10,10 +10,14 @@ const schema = Schema([
   // No file_name/content_type column: files are stored/served keyed by
   // this row's own id, sniffed by content rather than extension (see
   // ImageStore/backend's images.go) — see docs/adr/0006.
-  Table('image', [
-    Column.text('item_id'),
-    Column.integer('created_at'), // epoch millis; determines cover order
-  ], indexes: [
-    Index('image_item_id', [IndexedColumn.ascending('item_id')]),
-  ]),
+  Table(
+    'image',
+    [
+      Column.text('item_id'),
+      Column.integer('created_at'), // epoch millis; determines cover order
+    ],
+    indexes: [
+      Index('image_item_id', [IndexedColumn.ascending('item_id')]),
+    ],
+  ),
 ]);
