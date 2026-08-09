@@ -23,6 +23,7 @@ for everything after it, per the full scope in
 
 ## Platform / infra
 
+- [ ] client and server version in about app page
 - [x] Server-side client-version gate for schema migrations — see [ADR-0004](adr/0004-schema-migration-strategy.md). Implemented: required version is computed from embedded, breaking-marked migrations ([migrate.go](../backend/internal/db/migrate.go)); [token.go](../backend/internal/httpapi/token.go) returns HTTP 426 + `required_version` on an exact-match mismatch; client sends `client_version` and handles 426 via [unsynced_changes_guard.dart](../client/lib/sync/unsynced_changes_guard.dart).
 - [x] Prod config drift risk (powersync config) — `powersync/config.yaml`/`sync-rules.yaml` now ship baked into a published `innbo-powersync` image instead of being hand-copied onto the host — see [ADR-0007](adr/0007-powersync-config-image.md). `docker-compose.yml`'s remaining hand-maintained bits (external network name, etc.) are still a known, accepted residual risk.
 - [x] Revisit ADR-0004's wipe-and-resync strategy against PowerSync's own schema-change guidance — see updated [ADR-0004](adr/0004-schema-migration-strategy.md): decision holds (that guidance targets rolling deploys across uncontrolled client versions, not this app's single-household/few-devices setup), but flagged an uncalled-out risk — PK/replica-identity/table-rename/publication changes trigger blocking full server-side re-replication, stalling sync for all devices, independent of the client wipe strategy.
