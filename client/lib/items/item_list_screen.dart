@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:powersync/powersync.dart';
+import 'package:powersync/powersync.dart' hide Column;
 import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
@@ -26,15 +26,27 @@ class ItemListScreen extends StatelessWidget {
   });
 
   Future<void> _addItem(BuildContext context) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
+    final nameController = TextEditingController();
+    final placementController = TextEditingController();
+    final result = await showDialog<(String, String)>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Ny gjenstand'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Navn'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Navn'),
+            ),
+            TextField(
+              controller: placementController,
+              decoration: const InputDecoration(
+                labelText: 'Plassering (valgfritt)',
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -42,19 +54,22 @@ class ItemListScreen extends StatelessWidget {
             child: const Text('Avbryt'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () => Navigator.of(context).pop((
+              nameController.text.trim(),
+              placementController.text.trim(),
+            )),
             child: const Text('Legg til'),
           ),
         ],
       ),
     );
 
-    if (name == null || name.isEmpty) return;
-    await db.execute('INSERT INTO item (id, name, room_id) VALUES (?, ?, ?)', [
-      _uuid.v4(),
-      name,
-      roomId,
-    ]);
+    if (result == null || result.$1.isEmpty) return;
+    final (name, placement) = result;
+    await db.execute(
+      'INSERT INTO item (id, name, room_id, placement) VALUES (?, ?, ?, ?)',
+      [_uuid.v4(), name, roomId, placement.isEmpty ? null : placement],
+    );
   }
 
   @override
@@ -64,7 +79,7 @@ class ItemListScreen extends StatelessWidget {
       body: StreamBuilder<ResultSet>(
         stream: db.watch(
           '''
-          SELECT item.id, item.name,
+          SELECT item.id, item.name, item.placement,
             (SELECT id FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_image_id
           FROM item WHERE room_id = ? ORDER BY name
           ''',
@@ -80,6 +95,7 @@ class ItemListScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final id = rows[index]['id'] as String;
               final name = rows[index]['name'] as String;
+              final placement = rows[index]['placement'] as String?;
               final coverImageId = rows[index]['cover_image_id'] as String?;
               return ListTile(
                 leading: coverImageId == null
@@ -115,6 +131,7 @@ class ItemListScreen extends StatelessWidget {
                       credentials: credentials,
                       itemId: id,
                       itemName: name,
+                      itemPlacement: placement,
                     ),
                   ),
                 ),

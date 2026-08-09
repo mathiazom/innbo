@@ -5,4 +5,4 @@
 /// client that doesn't match exactly (see
 /// docs/adr/0004-schema-migration-strategy.md), so bump this to the
 /// matching migration's number whenever a breaking migration ships.
-const int kClientVersion = 2;
+const int kClientVersion = 3;

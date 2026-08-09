@@ -13,7 +13,7 @@ for everything after it, per the full scope in
 ## Data model
 
 - [ ] `container` (nesting under room/container)
-- [ ] `placement` field on item
+- [x] `placement` field on item — freeform optional text, captured at creation only (see below). Migration `0003_item_placement.sql`, `upload.go` allowlist, `schema.dart`, `kClientVersion` bump — see [ADR-0004](adr/0004-schema-migration-strategy.md).
 - [ ] `quantity`, `purchase_price`, `acquired_date`, `serial_number` on item
 - [ ] Dispose action (soft-delete, `disposed_at`)
 - [ ] Delete action (hard-delete, erases history)

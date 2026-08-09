@@ -18,6 +18,7 @@ class ItemDetailScreen extends StatelessWidget {
   final DeviceCredentials credentials;
   final String itemId;
   final String itemName;
+  final String? itemPlacement;
 
   const ItemDetailScreen({
     super.key,
@@ -25,6 +26,7 @@ class ItemDetailScreen extends StatelessWidget {
     required this.credentials,
     required this.itemId,
     required this.itemName,
+    this.itemPlacement,
   });
 
   Future<void> _addImage(BuildContext context, ImageSource source) async {
@@ -131,7 +133,26 @@ class ItemDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(itemName)),
+      appBar: AppBar(
+        toolbarHeight: itemPlacement == null
+            ? kToolbarHeight
+            : kToolbarHeight + 14,
+        title: itemPlacement == null
+            ? Text(itemName, overflow: TextOverflow.ellipsis)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(itemName, overflow: TextOverflow.ellipsis),
+                  Text(
+                    itemPlacement!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+      ),
       body: StreamBuilder<ResultSet>(
         stream: db.watch(
           'SELECT id FROM image WHERE item_id = ? ORDER BY created_at ASC',

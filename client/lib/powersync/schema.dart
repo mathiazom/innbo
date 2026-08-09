@@ -1,11 +1,15 @@
 import 'package:powersync/powersync.dart';
 
-/// Mirrors backend/migrations/0001_init.sql's `room`/`item` tables. Column
-/// names and types must match what the Go backend's /upload endpoint
-/// accepts (internal/httpapi/upload.go's allowedColumns).
+/// Mirrors the Postgres schema in backend/migrations/. Column names and
+/// types must match what the Go backend's /upload endpoint accepts
+/// (internal/httpapi/upload.go's allowedColumns).
 const schema = Schema([
   Table('room', [Column.text('name')]),
-  Table('item', [Column.text('name'), Column.text('room_id')]),
+  Table('item', [
+    Column.text('name'),
+    Column.text('room_id'),
+    Column.text('placement'),
+  ]),
   // See backend/migrations/0002_image.sql and upload.go's allowedColumns.
   // No file_name/content_type column: files are stored/served keyed by
   // this row's own id, sniffed by content rather than extension (see
