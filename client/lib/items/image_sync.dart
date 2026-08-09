@@ -83,7 +83,10 @@ class ImageSync {
       final response = await http
           .put(
             uri,
-            headers: {'Authorization': 'Bearer $token'},
+            headers: {
+              'Authorization': 'Bearer $token',
+              'X-Client-Version': '$kClientVersion',
+            },
             body: await file.readAsBytes(),
           )
           .timeout(_requestTimeout);
@@ -160,7 +163,13 @@ class ImageSync {
       http.Response? response;
       for (var attempt = 0; attempt < 5; attempt++) {
         response = await http
-            .get(uri, headers: {'Authorization': 'Bearer $token'})
+            .get(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $token',
+                'X-Client-Version': '$kClientVersion',
+              },
+            )
             .timeout(_requestTimeout);
         if (response.statusCode != 404) break;
         await Future.delayed(const Duration(milliseconds: 700));

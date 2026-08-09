@@ -20,11 +20,15 @@ func NewRouter(deps Deps) http.Handler {
 	mux.HandleFunc("GET /healthz", handleHealthz(deps.Pool))
 	mux.HandleFunc("POST /pairing/exchange", handlePairingExchange(deps.Pool))
 	mux.HandleFunc("POST /token", handleToken(deps.Pool, deps.JWTSecret, deps.RequiredClientVersion))
-	mux.HandleFunc("POST /upload", handleUpload(deps.Pool, deps.JWTSecret, deps.StorageDir))
-	mux.HandleFunc("PUT /images/{id}", handleImageUpload(deps.Pool, deps.JWTSecret, deps.StorageDir))
-	mux.HandleFunc("GET /images/{id}/full", handleImageDownload(deps.Pool, deps.JWTSecret, deps.StorageDir, "full"))
-	mux.HandleFunc("GET /images/{id}/thumbnail", handleImageDownload(deps.Pool, deps.JWTSecret, deps.StorageDir, "thumb"))
-	return logRequests(deps.JWTSecret, mux)
+	mux.HandleFunc("POST /upload", requireClientVersion(deps.JWTSecret, deps.RequiredClientVersion,
+		handleUpload(deps.Pool, deps.StorageDir)))
+	mux.HandleFunc("PUT /images/{id}", requireClientVersion(deps.JWTSecret, deps.RequiredClientVersion,
+		handleImageUpload(deps.Pool, deps.StorageDir)))
+	mux.HandleFunc("GET /images/{id}/full", requireClientVersion(deps.JWTSecret, deps.RequiredClientVersion,
+		handleImageDownload(deps.Pool, deps.StorageDir, "full")))
+	mux.HandleFunc("GET /images/{id}/thumbnail", requireClientVersion(deps.JWTSecret, deps.RequiredClientVersion,
+		handleImageDownload(deps.Pool, deps.StorageDir, "thumb")))
+	return logRequests(deps.JWTSecret, deps.RequiredClientVersion, mux)
 }
 
 // logRequests is the only access logging this server has — there was
@@ -33,12 +37,12 @@ func NewRouter(deps Deps) http.Handler {
 // the device id (best-effort — /token and /pairing/exchange requests
 // don't have a bearer token yet) is what makes multi-device debugging
 // possible from these logs at all.
-func logRequests(jwtSecret string, next http.Handler) http.Handler {
+func logRequests(jwtSecret string, requiredClientVersion int64, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
-		deviceID, err := bearerDeviceID(r, jwtSecret)
+		deviceID, err := bearerDeviceID(r, jwtSecret, requiredClientVersion)
 		if err != nil {
 			deviceID = "-"
 		}

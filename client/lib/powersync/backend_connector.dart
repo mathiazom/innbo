@@ -14,8 +14,10 @@ class InnboBackendConnector extends PowerSyncBackendConnector {
   final DeviceCredentials credentials;
   final PowerSyncDatabase database;
 
-  /// Called when the backend rejects this app version's token request as
-  /// mismatched (HTTP 426) — see lib/sync/unsynced_changes_guard.dart and
+  /// Called when the backend rejects this app version as mismatched (HTTP
+  /// 426) — from fetchCredentials()'s /token call, or from uploadData()'s
+  /// /upload call if a still-valid token outlives a version bump made
+  /// after it was minted. See lib/sync/unsynced_changes_guard.dart and
   /// docs/adr/0004-schema-migration-strategy.md.
   final Future<void> Function(PowerSyncDatabase database) onUpdateRequired;
 
@@ -83,10 +85,15 @@ class InnboBackendConnector extends PowerSyncBackendConnector {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${creds.token}',
+        'X-Client-Version': '$kClientVersion',
       },
       body: jsonEncode(ops),
     );
 
+    if (response.statusCode == 426) {
+      await onUpdateRequired(database);
+      return;
+    }
     if (response.statusCode == 401) {
       invalidateCredentials();
     }

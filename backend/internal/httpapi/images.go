@@ -35,13 +35,8 @@ const fullJPEGQuality = 92
 // request), so it accepts unconditionally under the authenticated
 // device's id: an orphaned blob if the row never arrives is harmless,
 // matching ADR-0003's already-accepted best-effort character.
-func handleImageUpload(pool *pgxpool.Pool, jwtSecret, storageDir string) http.HandlerFunc {
+func handleImageUpload(pool *pgxpool.Pool, storageDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := bearerDeviceID(r, jwtSecret); err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)
@@ -104,13 +99,8 @@ func encodeTo(path string, img image.Image, opts ...imaging.EncodeOption) error 
 // bytes (files are stored without an extension — Flutter's Image.file and
 // this both decode by content, not name) and handles range requests for
 // free.
-func handleImageDownload(pool *pgxpool.Pool, jwtSecret, storageDir, variant string) http.HandlerFunc {
+func handleImageDownload(pool *pgxpool.Pool, storageDir, variant string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := bearerDeviceID(r, jwtSecret); err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)

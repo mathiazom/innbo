@@ -3,10 +3,12 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -33,13 +35,8 @@ var allowedColumns = map[string][]string{
 	"image": {"item_id", "created_at"},
 }
 
-func handleUpload(pool *pgxpool.Pool, jwtSecret, storageDir string) http.HandlerFunc {
+func handleUpload(pool *pgxpool.Pool, storageDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := bearerDeviceID(r, jwtSecret); err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		var ops []crudOp
 		if err := json.NewDecoder(r.Body).Decode(&ops); err != nil {
 			http.Error(w, "invalid request", http.StatusBadRequest)
@@ -152,11 +149,64 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-func bearerDeviceID(r *http.Request, jwtSecret string) (string, error) {
+// versionMismatchError distinguishes "the token is valid but the client is
+// on the wrong schema version" from an actually-bad credential — see
+// writeAuthError and docs/adr/0004-schema-migration-strategy.md. It exists
+// because a token can outlive TokenTTL's own re-check: /token only gates
+// at mint time, so a device already holding one from before a breaking
+// deploy must be re-checked on every subsequent authenticated request, not
+// just when it next asks for a fresh token.
+type versionMismatchError struct{ required int64 }
+
+func (e *versionMismatchError) Error() string { return "client version mismatch" }
+
+// bearerDeviceID verifies both the bearer token and, on every call, the
+// client's current declared schema version (sent as X-Client-Version,
+// since the JWT itself carries none) — not just the version it happened
+// to report when the token was minted.
+func bearerDeviceID(r *http.Request, jwtSecret string, requiredClientVersion int64) (string, error) {
 	header := r.Header.Get("Authorization")
 	const prefix = "Bearer "
 	if !strings.HasPrefix(header, prefix) {
 		return "", fmt.Errorf("missing bearer token")
 	}
-	return auth.VerifyPowerSyncToken(jwtSecret, strings.TrimPrefix(header, prefix))
+	deviceID, err := auth.VerifyPowerSyncToken(jwtSecret, strings.TrimPrefix(header, prefix))
+	if err != nil {
+		return "", err
+	}
+
+	clientVersion, err := strconv.ParseInt(r.Header.Get("X-Client-Version"), 10, 64)
+	if err != nil || clientVersion != requiredClientVersion {
+		return "", &versionMismatchError{required: requiredClientVersion}
+	}
+	return deviceID, nil
+}
+
+// writeAuthError responds to a bearerDeviceID failure: 426 (with the
+// current required version) for a version mismatch, 401 for anything else
+// (missing/invalid/expired token).
+func writeAuthError(w http.ResponseWriter, err error) {
+	var versionErr *versionMismatchError
+	if errors.As(err, &versionErr) {
+		writeJSON(w, http.StatusUpgradeRequired, upgradeRequiredResponse{
+			Error:           "please update",
+			RequiredVersion: versionErr.required,
+		})
+		return
+	}
+	http.Error(w, "unauthorized", http.StatusUnauthorized)
+}
+
+// requireClientVersion gates a handler behind bearerDeviceID, so every
+// route needing it (all but /healthz, /pairing/exchange, and /token
+// itself, which is how a client gets a bearer token in the first place)
+// shares one auth check instead of each repeating it.
+func requireClientVersion(jwtSecret string, requiredClientVersion int64, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := bearerDeviceID(r, jwtSecret, requiredClientVersion); err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		next(w, r)
+	}
 }

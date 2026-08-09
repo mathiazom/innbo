@@ -60,4 +60,32 @@ Run through these steps top-to-bottom during a breaking migration:
    new migration's number, cut a client release (`scripts/release.sh`),
    tell users it's safe to use the app again, and update each device.
 
+## Re-checking version past token-mint time
+
+`/token`'s gate only runs when a token is minted, and the resulting JWT
+(`TokenTTL` = 1 hour) carries no version of its own — so a device already
+holding a valid token from before a breaking deploy could otherwise keep
+writing for up to an hour after the mismatch, regardless of the gate.
+Closed by re-checking on every authenticated request, not just at mint
+time: the client sends its current `kClientVersion` as an
+`X-Client-Version` header on every call, and `bearerDeviceID` (shared by
+`/upload` and both `/images/*` handlers) rejects a mismatch with `426`
+just like `/token` does. Delivered as a plain header rather than a JWT
+claim — avoids touching `auth/jwt.go` or restructuring `/upload`'s body
+(a bare JSON array, not an object) — and trusted the same way `/token`
+already trusts a client-reported `client_version`: this app's threat
+model is a single household's own devices, not an adversarial one.
+
+Accepted residual risk: PowerSync's own sync stream (the bucket-based
+download/upload of replicated Postgres data) is authenticated once with
+the same JWT, verified independently by PowerSync itself — it isn't
+mediated by our backend per-request, so it stays ungated by
+`client_version` for the life of the token no matter what we do to
+`/upload`. Accepted because this ADR's actual concern is writes ("don't
+let them silently write against a schema they don't match"), which is
+now fully closed; reads are lower-risk by comparison — additive schema
+changes are harmless to an old client, and destructive ones already
+stall sync for everyone via the re-replication cost described below,
+independent of any one device's version.
+
 Revisited against [PowerSync's own schema-change guidance](https://docs.powersync.com/maintenance-ops/implementing-schema-changes), which pushes towards backwards-compatible changes and versioned sync streams instead of wiping clients. That guidance is aimed at rolling deploys across many uncontrolled client versions in the wild — the problem this app doesn't have, given a single household's handful of devices under direct control and no auto-update. Wipe-and-resync stays the right call here. The one gap worth carrying forward: some Postgres-side schema changes (primary key/replica identity changes, table renames, adding a table to the publication) make PowerSync's *server* re-replicate the whole table from Postgres, blocking sync for everyone until it finishes — a cost that exists independently of the client wipe strategy and isn't currently called out anywhere. When making a breaking migration of that shape, expect sync to stall for all connected devices during re-replication, not just the device being upgraded.
