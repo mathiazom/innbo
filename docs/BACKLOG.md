@@ -22,7 +22,7 @@ for everything after it, per the full scope in
 ## Platform / infra
 
 - [ ] Server-side client-version gate for schema migrations — see [ADR-0004](adr/0004-schema-migration-strategy.md)
-- [ ] Prod config drift risk: `docker-compose.yml`/`powersync/config.yaml`/`powersync/sync-rules.yaml` on the production host are hand-maintained, not a git checkout — a real deploy already missed the `image` sync rule this way (silent, no error, just data that never synced). Candidate fix: clone this repo on the prod host and point the powersync volume mount at that checkout's `powersync/` directory, so `git pull` is what keeps config current instead of manual copying; `docker-compose.yml` itself can stay separately maintained for host-specific bits (external network name, etc).
+- [x] Prod config drift risk (powersync config) — `powersync/config.yaml`/`sync-rules.yaml` now ship baked into a published `innbo-powersync` image instead of being hand-copied onto the host — see [ADR-0007](adr/0007-powersync-config-image.md). `docker-compose.yml`'s remaining hand-maintained bits (external network name, etc.) are still a known, accepted residual risk.
 - [ ] Revisit ADR-0004's wipe-and-resync strategy against PowerSync's own schema-change guidance (https://docs.powersync.com/maintenance-ops/implementing-schema-changes — recommends backwards-compatible client schema changes via versioned streams instead of wipe/resync; also notes column defaults/removals need an explicit per-row update since they don't auto-propagate, and some changes trigger blocking full re-replication)
 - [ ] Restore-from-device flow — see [ADR-0003](adr/0003-restore-from-device.md)
 - [ ] Device overview screen (paired devices, sync/image status, `paired_device.image_completeness_pct`)

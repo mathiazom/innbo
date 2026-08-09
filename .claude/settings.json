@@ -2,5 +2,10 @@
   "enabledPlugins": {
     "ponytail@ponytail": true,
     "mattpocock-skills@claude-plugins-official": true
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

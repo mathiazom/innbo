@@ -8,6 +8,9 @@
 #   - backend runs a published image (GHCR) instead of building from source
 #   - backend joins an existing external Docker network so a reverse proxy
 #     on that network can reach it
+#   - powersync runs a published image with config.yaml/sync-rules.yaml
+#     baked in (see powersync/Dockerfile), instead of bind-mounting ./powersync —
+#     see ADR-0007
 services:
   postgres:
     image: postgres:16
@@ -79,7 +82,7 @@ services:
       - default
 
   powersync:
-    image: journeyapps/powersync-service:latest
+    image: ghcr.io/mathiazom/innbo-powersync:${IMAGE_TAG:-latest}
     command: ["start", "-r", "unified"]
     environment:
       POWERSYNC_CONFIG_PATH: /config/config.yaml
@@ -88,8 +91,6 @@ services:
       PS_PORT: "8081"
       PS_JWT_SECRET: ${JWT_SECRET}
       PS_ADMIN_TOKEN: ${POWERSYNC_ADMIN_TOKEN}
-    volumes:
-      - ./powersync:/config:ro
     depends_on:
       postgres:
         condition: service_healthy
