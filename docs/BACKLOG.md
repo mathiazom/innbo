@@ -2,7 +2,8 @@
 
 Slices for post-v0 work, roughly ordered. Check items off as they ship;
 append new ones as they're identified. Each slice should be small enough
-for one grill → plan → implement → review loop (see project workflow).
+for one grill → plan → implement → review loop (see
+[CLAUDE.md](../CLAUDE.md)).
 
 v0 (the walking skeleton — Room/Item CRUD, pairing, sync, deploy pipeline)
 is done; see [ADR-0005](adr/0005-v0-walking-skeleton.md). This is the queue
