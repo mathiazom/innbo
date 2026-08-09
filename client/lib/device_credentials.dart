@@ -7,8 +7,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///
 /// Backend API and PowerSync are two separate services (see
 /// docker-compose.yml) that may sit behind different reverse-proxy
-/// hostnames/paths in a real deployment, so both URLs are collected
-/// explicitly at pairing time rather than assumed from one host.
+/// hostnames/paths in a real deployment. The backend knows its own
+/// PowerSync URL and hands it back in the pairing exchange response, so
+/// only the server URL is entered by hand — the PowerSync URL is stored
+/// alongside it for convenience but never typed in.
 class DeviceCredentials {
   final String serverUrl;
   final String powerSyncUrl;

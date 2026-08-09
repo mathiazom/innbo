@@ -17,9 +17,10 @@ type pairingExchangeRequest struct {
 type pairingExchangeResponse struct {
 	DeviceID     string `json:"device_id"`
 	DeviceSecret string `json:"device_secret"`
+	PowerSyncURL string `json:"powersync_url"`
 }
 
-func handlePairingExchange(pool *pgxpool.Pool) http.HandlerFunc {
+func handlePairingExchange(pool *pgxpool.Pool, powerSyncURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pairingExchangeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
@@ -85,6 +86,7 @@ func handlePairingExchange(pool *pgxpool.Pool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, pairingExchangeResponse{
 			DeviceID:     deviceID,
 			DeviceSecret: secret,
+			PowerSyncURL: powerSyncURL,
 		})
 	}
 }

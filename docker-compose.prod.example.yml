@@ -37,6 +37,7 @@ services:
       POWERSYNC_DB_PASSWORD: ${POWERSYNC_DB_PASSWORD}
       LISTEN_ADDR: :8080
       STORAGE_DIR: /data/images
+      POWERSYNC_PUBLIC_URL: ${POWERSYNC_PUBLIC_URL}
     volumes:
       - backend-images:/data/images
     depends_on:
@@ -97,7 +98,7 @@ services:
         condition: service_completed_successfully
     networks:
       - default
-      - npm-network # only if you want to reach PowerSync directly (e.g. powersync.yourdomain), otherwise omit
+      - npm-network
 
 volumes:
   postgres-data:

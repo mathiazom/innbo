@@ -62,6 +62,7 @@ func runServer() error {
 		JWTSecret:             cfg.JWTSecret,
 		RequiredClientVersion: requiredClientVersion,
 		StorageDir:            cfg.StorageDir,
+		PowerSyncURL:          cfg.PowerSyncURL,
 	})
 	log.Printf("listening on %s", cfg.ListenAddr)
 	return http.ListenAndServe(cfg.ListenAddr, router)

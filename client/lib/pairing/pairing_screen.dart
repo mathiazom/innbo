@@ -17,7 +17,6 @@ class PairingScreen extends StatefulWidget {
 class _PairingScreenState extends State<PairingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverUrlController = TextEditingController();
-  final _powerSyncUrlController = TextEditingController();
   final _codeController = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -25,7 +24,6 @@ class _PairingScreenState extends State<PairingScreen> {
   @override
   void dispose() {
     _serverUrlController.dispose();
-    _powerSyncUrlController.dispose();
     _codeController.dispose();
     super.dispose();
   }
@@ -55,7 +53,7 @@ class _PairingScreenState extends State<PairingScreen> {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final credentials = DeviceCredentials(
         serverUrl: serverUrl,
-        powerSyncUrl: _powerSyncUrlController.text.trim(),
+        powerSyncUrl: body['powersync_url'] as String,
         deviceId: body['device_id'] as String,
         deviceSecret: body['device_secret'] as String,
       );
@@ -85,16 +83,6 @@ class _PairingScreenState extends State<PairingScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Server-adresse',
                   hintText: 'https://innbo.eksempel.no',
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Påkrevd' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _powerSyncUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'PowerSync-adresse',
-                  hintText: 'https://sync.innbo.eksempel.no',
                 ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Påkrevd' : null,

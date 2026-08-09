@@ -13,12 +13,13 @@ type Deps struct {
 	JWTSecret             string
 	RequiredClientVersion int64
 	StorageDir            string
+	PowerSyncURL          string
 }
 
 func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealthz(deps.Pool))
-	mux.HandleFunc("POST /pairing/exchange", handlePairingExchange(deps.Pool))
+	mux.HandleFunc("POST /pairing/exchange", handlePairingExchange(deps.Pool, deps.PowerSyncURL))
 	mux.HandleFunc("POST /token", handleToken(deps.Pool, deps.JWTSecret, deps.RequiredClientVersion))
 	mux.HandleFunc("POST /upload", requireClientVersion(deps.JWTSecret, deps.RequiredClientVersion,
 		handleUpload(deps.Pool, deps.StorageDir)))

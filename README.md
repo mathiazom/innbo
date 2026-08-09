@@ -33,10 +33,11 @@ flutter pub get
 flutter run -d macos   # or an Android emulator/device — see `flutter devices`
 ```
 
-In the pairing screen, use `http://localhost:8080` (backend) and
-`http://localhost:8081` (PowerSync) — or `http://10.0.2.2:PORT` from an
-Android emulator, or your machine's LAN IP from a physical device — plus
-the printed pairing code.
+In the pairing screen, use `http://<your-machine's-LAN-IP>:8080` (backend)
+plus the printed pairing code — this works from desktop, an Android
+emulator, and a physical device alike, so the same running backend can
+pair all of them at once. Set `POWERSYNC_PUBLIC_URL` in `.env` to that
+same LAN IP too (see `.env.example`).
 
 See [docs/INSTALL-MACOS.md](docs/INSTALL-MACOS.md) if a built `.dmg` is
 blocked by Gatekeeper.
