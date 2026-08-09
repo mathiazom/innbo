@@ -55,7 +55,7 @@ class RoomListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
-          onTap: () => showAboutAppDialog(context, credentials.serverUrl),
+          onTap: () => showAboutAppDialog(context, credentials.serverUrl, db),
           child: Image.asset('assets/icon/icon.png', height: 32),
         ),
       ),
