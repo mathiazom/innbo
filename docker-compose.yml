@@ -25,7 +25,6 @@ services:
       DATABASE_URL: postgres://innbo:${POSTGRES_PASSWORD}@postgres:5432/innbo
       JWT_SECRET: ${JWT_SECRET}
       POWERSYNC_DB_PASSWORD: ${POWERSYNC_DB_PASSWORD}
-      MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-1}
       LISTEN_ADDR: :8080
       STORAGE_DIR: /data/images
     volumes:

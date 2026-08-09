@@ -5,18 +5,22 @@ import (
 	"fmt"
 	"io/fs"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mathiazom/innbo/backend/migrations"
 )
 
+// breakingMarker, as a migration file's first line, means the client must
+// declare its own kClientVersion as this migration's numeric prefix
+// before the server accepts its connection — see
+// docs/adr/0004-schema-migration-strategy.md.
+const breakingMarker = "-- schema-version: breaking"
+
 var migrationsFS = migrations.FS
 
 const migrationsDir = "."
-
-// entryPath returns the io/fs path for a file at the embedded FS root
-// (fs.ReadFile rejects a "./" prefix even though ReadDir accepts "." as
-// the root directory).
 
 // Migrate applies any migration files under migrationsDir that aren't yet
 // recorded in schema_migrations, in filename order, each in its own
@@ -80,4 +84,63 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	return nil
+}
+
+// RequiredClientVersion returns the version number of the highest-numbered
+// embedded migration marked breaking — the value clients must exactly
+// match for the /token gate to pass. It's a fact of which migrations this
+// binary was built with, not a separately maintained setting, so it can't
+// drift from the migrations actually applied on startup.
+func RequiredClientVersion() (int64, error) {
+	return requiredClientVersion(migrationsFS)
+}
+
+func requiredClientVersion(fsys fs.FS) (int64, error) {
+	entries, err := fs.ReadDir(fsys, migrationsDir)
+	if err != nil {
+		return 0, fmt.Errorf("reading embedded migrations: %w", err)
+	}
+
+	var required int64
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		breaking, err := isBreakingMigration(fsys, e.Name())
+		if err != nil {
+			return 0, err
+		}
+		if !breaking {
+			continue
+		}
+		version, err := migrationVersion(e.Name())
+		if err != nil {
+			return 0, err
+		}
+		if version > required {
+			required = version
+		}
+	}
+	return required, nil
+}
+
+func isBreakingMigration(fsys fs.FS, name string) (bool, error) {
+	sqlBytes, err := fs.ReadFile(fsys, name)
+	if err != nil {
+		return false, fmt.Errorf("reading migration %s: %w", name, err)
+	}
+	firstLine, _, _ := strings.Cut(string(sqlBytes), "\n")
+	return strings.TrimSpace(firstLine) == breakingMarker, nil
+}
+
+func migrationVersion(name string) (int64, error) {
+	prefix, _, ok := strings.Cut(name, "_")
+	if !ok {
+		return 0, fmt.Errorf("migration %s doesn't follow the NNNN_name.sql convention", name)
+	}
+	version, err := strconv.ParseInt(prefix, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("migration %s has a non-numeric version prefix: %w", name, err)
+	}
+	return version, nil
 }

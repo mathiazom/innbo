@@ -1,3 +1,4 @@
+-- schema-version: breaking
 CREATE TABLE image (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     item_id    uuid NOT NULL REFERENCES item(id),

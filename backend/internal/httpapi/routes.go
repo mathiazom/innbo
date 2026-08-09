@@ -9,17 +9,17 @@ import (
 )
 
 type Deps struct {
-	Pool             *pgxpool.Pool
-	JWTSecret        string
-	MinClientVersion int64
-	StorageDir       string
+	Pool                  *pgxpool.Pool
+	JWTSecret             string
+	RequiredClientVersion int64
+	StorageDir            string
 }
 
 func NewRouter(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealthz(deps.Pool))
 	mux.HandleFunc("POST /pairing/exchange", handlePairingExchange(deps.Pool))
-	mux.HandleFunc("POST /token", handleToken(deps.Pool, deps.JWTSecret, deps.MinClientVersion))
+	mux.HandleFunc("POST /token", handleToken(deps.Pool, deps.JWTSecret, deps.RequiredClientVersion))
 	mux.HandleFunc("POST /upload", handleUpload(deps.Pool, deps.JWTSecret, deps.StorageDir))
 	mux.HandleFunc("PUT /images/{id}", handleImageUpload(deps.Pool, deps.JWTSecret, deps.StorageDir))
 	mux.HandleFunc("GET /images/{id}/full", handleImageDownload(deps.Pool, deps.JWTSecret, deps.StorageDir, "full"))

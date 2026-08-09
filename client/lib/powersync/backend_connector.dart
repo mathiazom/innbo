@@ -15,7 +15,7 @@ class InnboBackendConnector extends PowerSyncBackendConnector {
   final PowerSyncDatabase database;
 
   /// Called when the backend rejects this app version's token request as
-  /// outdated (HTTP 426) — see lib/sync/unsynced_changes_guard.dart and
+  /// mismatched (HTTP 426) — see lib/sync/unsynced_changes_guard.dart and
   /// docs/adr/0004-schema-migration-strategy.md.
   final Future<void> Function(PowerSyncDatabase database) onUpdateRequired;
 

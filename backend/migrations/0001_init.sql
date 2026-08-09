@@ -1,3 +1,4 @@
+-- schema-version: breaking
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE room (

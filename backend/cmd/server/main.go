@@ -42,6 +42,11 @@ func runServer() error {
 		return err
 	}
 
+	requiredClientVersion, err := db.RequiredClientVersion()
+	if err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(cfg.StorageDir, 0o755); err != nil {
 		return err
 	}
@@ -53,10 +58,10 @@ func runServer() error {
 	}
 
 	router := httpapi.NewRouter(httpapi.Deps{
-		Pool:             pool,
-		JWTSecret:        cfg.JWTSecret,
-		MinClientVersion: cfg.MinClientVersion,
-		StorageDir:       cfg.StorageDir,
+		Pool:                  pool,
+		JWTSecret:             cfg.JWTSecret,
+		RequiredClientVersion: requiredClientVersion,
+		StorageDir:            cfg.StorageDir,
 	})
 	log.Printf("listening on %s", cfg.ListenAddr)
 	return http.ListenAndServe(cfg.ListenAddr, router)

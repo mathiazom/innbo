@@ -4,7 +4,7 @@ import 'package:powersync/powersync.dart';
 
 /// Client-side safeguard for the wipe-and-resync migration strategy (see
 /// docs/adr/0004-schema-migration-strategy.md). Runs when the backend
-/// rejects this app version's token request as outdated (HTTP 426) — the
+/// rejects this app version's token request as mismatched (HTTP 426) — the
 /// point at which it would be tempting to just silently discard local
 /// data and tell the user to update.
 ///

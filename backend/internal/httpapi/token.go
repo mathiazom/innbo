@@ -21,11 +21,11 @@ type tokenResponse struct {
 }
 
 type upgradeRequiredResponse struct {
-	Error      string `json:"error"`
-	MinVersion int64  `json:"min_version"`
+	Error           string `json:"error"`
+	RequiredVersion int64  `json:"required_version"`
 }
 
-func handleToken(pool *pgxpool.Pool, jwtSecret string, minClientVersion int64) http.HandlerFunc {
+func handleToken(pool *pgxpool.Pool, jwtSecret string, requiredClientVersion int64) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req tokenRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.DeviceID == "" || req.DeviceSecret == "" {
@@ -53,10 +53,10 @@ func handleToken(pool *pgxpool.Pool, jwtSecret string, minClientVersion int64) h
 			return
 		}
 
-		if req.ClientVersion < minClientVersion {
+		if req.ClientVersion != requiredClientVersion {
 			writeJSON(w, http.StatusUpgradeRequired, upgradeRequiredResponse{
-				Error:      "please update",
-				MinVersion: minClientVersion,
+				Error:           "please update",
+				RequiredVersion: requiredClientVersion,
 			})
 			return
 		}
