@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -46,39 +48,33 @@ class DeviceCredentials {
       accountName: _keychainAccountName,
     ),
   );
-  static const _keyServerUrl = 'server_url';
-  static const _keyPowerSyncUrl = 'powersync_url';
-  static const _keyDeviceId = 'device_id';
-  static const _keyDeviceSecret = 'device_secret';
+  // All four fields live under one key so macOS Keychain sees a single
+  // item instead of four — each item gets its own access-confirmation
+  // prompt on first use, so four keys meant four prompts.
+  static const _key = 'device_credentials';
 
-  // readAll() is avoided: on macOS with usesDataProtectionKeychain: false,
-  // the legacy keychain rejects kSecReturnData combined with
-  // kSecMatchLimitAll (which readAll always sets), failing every call
-  // with -50 regardless of what's stored.
   static Future<DeviceCredentials?> read() async {
-    final serverUrl = await _storage.read(key: _keyServerUrl);
-    final powerSyncUrl = await _storage.read(key: _keyPowerSyncUrl);
-    final deviceId = await _storage.read(key: _keyDeviceId);
-    final deviceSecret = await _storage.read(key: _keyDeviceSecret);
-    if (serverUrl == null ||
-        powerSyncUrl == null ||
-        deviceId == null ||
-        deviceSecret == null) {
-      return null;
-    }
+    final raw = await _storage.read(key: _key);
+    if (raw == null) return null;
+    final json = jsonDecode(raw) as Map<String, dynamic>;
     return DeviceCredentials(
-      serverUrl: serverUrl,
-      powerSyncUrl: powerSyncUrl,
-      deviceId: deviceId,
-      deviceSecret: deviceSecret,
+      serverUrl: json['server_url'] as String,
+      powerSyncUrl: json['powersync_url'] as String,
+      deviceId: json['device_id'] as String,
+      deviceSecret: json['device_secret'] as String,
     );
   }
 
   Future<void> save() async {
-    await _storage.write(key: _keyServerUrl, value: serverUrl);
-    await _storage.write(key: _keyPowerSyncUrl, value: powerSyncUrl);
-    await _storage.write(key: _keyDeviceId, value: deviceId);
-    await _storage.write(key: _keyDeviceSecret, value: deviceSecret);
+    await _storage.write(
+      key: _key,
+      value: jsonEncode({
+        'server_url': serverUrl,
+        'powersync_url': powerSyncUrl,
+        'device_id': deviceId,
+        'device_secret': deviceSecret,
+      }),
+    );
   }
 
   static Future<void> clear() => _storage.deleteAll();
