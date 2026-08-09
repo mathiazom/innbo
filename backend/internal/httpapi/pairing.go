@@ -11,8 +11,12 @@ import (
 )
 
 type pairingExchangeRequest struct {
-	Code string `json:"code"`
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
 }
+
+var validPairingPlatforms = map[string]bool{"android": true, "macos": true}
 
 type pairingExchangeResponse struct {
 	DeviceID     string `json:"device_id"`
@@ -23,7 +27,8 @@ type pairingExchangeResponse struct {
 func handlePairingExchange(pool *pgxpool.Pool, powerSyncURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pairingExchangeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+			req.Code == "" || req.Name == "" || !validPairingPlatforms[req.Platform] {
 			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
@@ -66,6 +71,14 @@ func handlePairingExchange(pool *pgxpool.Pool, powerSyncURL string) http.Handler
 			`INSERT INTO device (secret_hash) VALUES ($1) RETURNING id`,
 			hash,
 		).Scan(&deviceID); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO paired_device (device_id, name, platform) VALUES ($1, $2, $3)`,
+			deviceID, req.Name, req.Platform,
+		); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}

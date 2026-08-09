@@ -6,3 +6,4 @@ bucket_definitions:
       - SELECT * FROM room
       - SELECT * FROM item
       - SELECT * FROM image
+      - SELECT * FROM paired_device

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -18,6 +19,7 @@ class _PairingScreenState extends State<PairingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverUrlController = TextEditingController();
   final _codeController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -25,6 +27,7 @@ class _PairingScreenState extends State<PairingScreen> {
   void dispose() {
     _serverUrlController.dispose();
     _codeController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -42,7 +45,11 @@ class _PairingScreenState extends State<PairingScreen> {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'code': _codeController.text.trim()}),
+        body: jsonEncode({
+          'code': _codeController.text.trim(),
+          'name': _nameController.text.trim(),
+          'platform': Platform.isAndroid ? 'android' : 'macos',
+        }),
       );
 
       if (response.statusCode != 200) {
@@ -92,6 +99,16 @@ class _PairingScreenState extends State<PairingScreen> {
                 controller: _codeController,
                 decoration: const InputDecoration(labelText: 'Paringskode'),
                 textCapitalization: TextCapitalization.characters,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Påkrevd' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Enhetsnavn',
+                  hintText: 'F.eks. Ola sin telefon',
+                ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Påkrevd' : null,
               ),

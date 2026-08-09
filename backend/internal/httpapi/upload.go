@@ -30,9 +30,10 @@ type crudOp struct {
 // table, since column names in a PATCH's data map come from client input
 // and must never be interpolated into SQL unchecked.
 var allowedColumns = map[string][]string{
-	"room":  {"name"},
-	"item":  {"name", "room_id", "placement"},
-	"image": {"item_id", "created_at"},
+	"room":          {"name"},
+	"item":          {"name", "room_id", "placement"},
+	"image":         {"item_id", "created_at"},
+	"paired_device": {"name", "last_sync_at", "image_completeness_pct"},
 }
 
 func handleUpload(pool *pgxpool.Pool, storageDir string) http.HandlerFunc {

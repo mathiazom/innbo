@@ -24,4 +24,14 @@ const schema = Schema([
       Index('image_item_id', [IndexedColumn.ascending('item_id')]),
     ],
   ),
+  // See backend/migrations/0004_paired_device.sql. No revoked_at column:
+  // this client doesn't act on revocation yet, so it's left out of the
+  // synced subset until a revoke UI needs it.
+  Table('paired_device', [
+    Column.text('device_id'),
+    Column.text('name'),
+    Column.text('platform'),
+    Column.integer('last_sync_at'), // epoch millis
+    Column.integer('image_completeness_pct'),
+  ]),
 ]);

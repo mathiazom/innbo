@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 
 import 'device_credentials.dart';
+import 'devices/device_status_sync.dart';
 import 'pairing/pairing_screen.dart';
 import 'powersync/backend_connector.dart';
 import 'powersync/schema.dart';
@@ -23,7 +24,7 @@ class InnboApp extends StatefulWidget {
   State<InnboApp> createState() => _InnboAppState();
 }
 
-class _InnboAppState extends State<InnboApp> {
+class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
   PowerSyncDatabase? _db;
   DeviceCredentials? _credentials;
   bool _loading = true;
@@ -31,7 +32,25 @@ class _InnboAppState extends State<InnboApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final db = _db;
+    final credentials = _credentials;
+    if (state == AppLifecycleState.resumed &&
+        db != null &&
+        credentials != null) {
+      refreshDeviceStatus(db, credentials);
+    }
   }
 
   Future<void> _bootstrap() async {

@@ -7,6 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' hide Column;
 
+import 'device_credentials.dart';
+import 'devices/device_overview_screen.dart';
+import 'time_format.dart';
+
 /// Shows an "about" dialog with the running client's version (from
 /// pubspec.yaml in release builds, a "dev" placeholder otherwise — matching
 /// the server's own fallback in backend/internal/httpapi/version.go), the
@@ -14,13 +18,13 @@ import 'package:powersync/powersync.dart' hide Column;
 /// unreachable), and the PowerSync connection/sync status.
 Future<void> showAboutAppDialog(
   BuildContext context,
-  String serverUrl,
+  DeviceCredentials credentials,
   PowerSyncDatabase db,
 ) async {
   final clientVersion = kReleaseMode
       ? (await PackageInfo.fromPlatform()).version
       : 'dev';
-  final serverVersion = _fetchServerVersion(serverUrl);
+  final serverVersion = _fetchServerVersion(credentials.serverUrl);
 
   if (!context.mounted) return;
   await showDialog<void>(
@@ -45,7 +49,7 @@ Future<void> showAboutAppDialog(
                   children: [
                     _ConnectionStateRow(status: status),
                     Text(
-                      'Sist synkronisert: ${_formatRelative(status.lastSyncedAt)}',
+                      'Sist synkronisert: ${formatRelativeTime(status.lastSyncedAt)}',
                     ),
                     FutureBuilder<UploadQueueStats>(
                       future: db.getUploadQueueStats(),
@@ -84,6 +88,18 @@ Future<void> showAboutAppDialog(
         ),
       ),
       actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    DeviceOverviewScreen(db: db, credentials: credentials),
+              ),
+            );
+          },
+          child: const Text('Vis alle enheter'),
+        ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Lukk'),
@@ -162,22 +178,6 @@ class _ConnectionStateRow extends StatelessWidget {
       ],
     );
   }
-}
-
-String _formatRelative(DateTime? lastSyncedAt) {
-  if (lastSyncedAt == null) return 'Aldri';
-  final diff = DateTime.now().difference(lastSyncedAt);
-  if (diff.inMinutes < 1) return 'nå nettopp';
-  if (diff.inMinutes < 60) {
-    final m = diff.inMinutes;
-    return 'for $m ${m == 1 ? 'minutt' : 'minutter'} siden';
-  }
-  if (diff.inHours < 24) {
-    final h = diff.inHours;
-    return 'for $h ${h == 1 ? 'time' : 'timer'} siden';
-  }
-  final d = diff.inDays;
-  return 'for $d ${d == 1 ? 'dag' : 'dager'} siden';
 }
 
 Future<String> _fetchServerVersion(String serverUrl) async {
