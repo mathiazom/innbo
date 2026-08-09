@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart';
-import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
 import '../device_credentials.dart';
 import '../items/item_list_screen.dart';
+import '../powersync/synced_list_view.dart';
 
 const _uuid = Uuid();
 
@@ -53,35 +53,31 @@ class RoomListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Rom')),
-      body: StreamBuilder<ResultSet>(
-        stream: db.watch('SELECT id, name FROM room ORDER BY name'),
-        builder: (context, snapshot) {
-          final rows = snapshot.data ?? ResultSet([], null, []);
-          if (rows.isEmpty) {
-            return const Center(child: Text('Ingen rom ennå.'));
-          }
-          return ListView.builder(
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
-              final row = rows[index];
-              final id = row['id'] as String;
-              final name = row['name'] as String;
-              return ListTile(
-                title: Text(name),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ItemListScreen(
-                      db: db,
-                      credentials: credentials,
-                      roomId: id,
-                      roomName: name,
-                    ),
+      body: SyncedListView(
+        db: db,
+        query: db.watch('SELECT id, name FROM room ORDER BY name'),
+        emptyText: 'Ingen rom ennå.',
+        itemBuilder: (context, rows) => ListView.builder(
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final id = row['id'] as String;
+            final name = row['name'] as String;
+            return ListTile(
+              title: Text(name),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ItemListScreen(
+                    db: db,
+                    credentials: credentials,
+                    roomId: id,
+                    roomName: name,
                   ),
                 ),
-              );
-            },
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addRoom(context),

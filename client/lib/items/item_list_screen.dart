@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart' hide Column;
-import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
 import '../device_credentials.dart';
+import '../powersync/synced_list_view.dart';
 import 'image_sync.dart';
 import 'item_detail_screen.dart';
 
@@ -76,8 +76,9 @@ class ItemListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(roomName)),
-      body: StreamBuilder<ResultSet>(
-        stream: db.watch(
+      body: SyncedListView(
+        db: db,
+        query: db.watch(
           '''
           SELECT item.id, item.name, item.placement,
             (SELECT id FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_image_id
@@ -85,60 +86,55 @@ class ItemListScreen extends StatelessWidget {
           ''',
           parameters: [roomId],
         ),
-        builder: (context, snapshot) {
-          final rows = snapshot.data ?? ResultSet([], null, []);
-          if (rows.isEmpty) {
-            return const Center(child: Text('Ingen gjenstander ennå.'));
-          }
-          return ListView.builder(
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
-              final id = rows[index]['id'] as String;
-              final name = rows[index]['name'] as String;
-              final placement = rows[index]['placement'] as String?;
-              final coverImageId = rows[index]['cover_image_id'] as String?;
-              return ListTile(
-                leading: coverImageId == null
-                    ? null
-                    : FutureBuilder<File?>(
-                        future: ImageSync.ensureLocalThumbnail(
-                          credentials,
-                          coverImageId,
-                        ),
-                        builder: (context, snapshot) {
-                          final file = snapshot.data;
-                          if (file == null) return const SizedBox.shrink();
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image.file(
-                              file,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              // The file may be a full-res original (see
-                              // ImageSync.ensureLocalThumbnail) — decode
-                              // at display size, not full resolution.
-                              cacheWidth: 96,
-                            ),
-                          );
-                        },
+        emptyText: 'Ingen gjenstander ennå.',
+        itemBuilder: (context, rows) => ListView.builder(
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final id = rows[index]['id'] as String;
+            final name = rows[index]['name'] as String;
+            final placement = rows[index]['placement'] as String?;
+            final coverImageId = rows[index]['cover_image_id'] as String?;
+            return ListTile(
+              leading: coverImageId == null
+                  ? null
+                  : FutureBuilder<File?>(
+                      future: ImageSync.ensureLocalThumbnail(
+                        credentials,
+                        coverImageId,
                       ),
-                title: Text(name),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ItemDetailScreen(
-                      db: db,
-                      credentials: credentials,
-                      itemId: id,
-                      itemName: name,
-                      itemPlacement: placement,
+                      builder: (context, snapshot) {
+                        final file = snapshot.data;
+                        if (file == null) return const SizedBox.shrink();
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.file(
+                            file,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            // The file may be a full-res original (see
+                            // ImageSync.ensureLocalThumbnail) — decode
+                            // at display size, not full resolution.
+                            cacheWidth: 96,
+                          ),
+                        );
+                      },
                     ),
+              title: Text(name),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ItemDetailScreen(
+                    db: db,
+                    credentials: credentials,
+                    itemId: id,
+                    itemName: name,
+                    itemPlacement: placement,
                   ),
                 ),
-              );
-            },
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addItem(context),
