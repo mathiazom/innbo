@@ -14,6 +14,7 @@ for everything after it, per the full scope in
 
 - [ ] `container` (nesting under room/container)
 - [x] `placement` field on item — freeform optional text, captured at creation only (see below). Migration `0003_item_placement.sql`, `upload.go` allowlist, `schema.dart`, `kClientVersion` bump — see [ADR-0004](adr/0004-schema-migration-strategy.md).
+- [ ] Editable items — today nothing about an item is editable after creation except images; `name`, `room_id`, and now `placement` are all write-once at creation. Deliberately scoped out of the `placement` slice (see grilling notes) since it'd otherwise become the first item-editing UI ever built, buried inside an unrelated field addition. Needs its own slice: an edit affordance (likely in `item_detail_screen.dart`) covering all three fields, not just whichever field happens to need it next.
 - [ ] `quantity`, `purchase_price`, `acquired_date`, `serial_number` on item
 - [ ] Dispose action (soft-delete, `disposed_at`)
 - [ ] Delete action (hard-delete, erases history)
