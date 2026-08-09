@@ -21,6 +21,11 @@ for everything after it, per the full scope in
 - [ ] `item_history` audit trail — see [ADR-0002](adr/0002-item-history-audit-trail.md)
 - [x] `image` + cover image handling — local attach/view/delete (first slice) plus cross-device sync via the backend (this slice) — see [ADR-0006](adr/0006-image-storage-and-sync.md)
 
+## Client
+
+- [ ] selectable text
+
+
 ## Platform / infra
 
 - [x] only require backend url on pairing, powersync should be known to backend — backend now requires `POWERSYNC_PUBLIC_URL` and returns it in `POST /pairing/exchange`'s response; the pairing screen no longer asks for a PowerSync URL.
