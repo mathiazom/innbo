@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 
 import 'device_credentials.dart';
 import 'devices/device_status_sync.dart';
+import 'pairing/pairing_link.dart';
 import 'pairing/pairing_screen.dart';
 import 'powersync/backend_connector.dart';
 import 'powersync/schema.dart';
@@ -28,18 +32,40 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
   PowerSyncDatabase? _db;
   DeviceCredentials? _credentials;
   bool _loading = true;
+  PairingLinkData? _pendingPairingLink;
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+    _listenForPairingLinks();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _linkSubscription?.cancel();
     super.dispose();
+  }
+
+  // Handles the "scan with the phone's stock camera app": the
+  // app registers an innbo://pair intent-filter (see AndroidManifest.xml),
+  // so the OS can hand us the link cold-start (getInitialLink) or while
+  // already running (uriLinkStream). Ignored once already paired.
+  void _listenForPairingLinks() {
+    final appLinks = AppLinks();
+    void handle(Uri uri) {
+      if (_db != null) return;
+      final data = parsePairingLink(uri.toString());
+      if (data != null) setState(() => _pendingPairingLink = data);
+    }
+
+    appLinks.getInitialLink().then((uri) {
+      if (uri != null) handle(uri);
+    });
+    _linkSubscription = appLinks.uriLinkStream.listen(handle);
   }
 
   @override
@@ -101,7 +127,10 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : (_db != null
                 ? RoomListScreen(db: _db!, credentials: _credentials!)
-                : PairingScreen(onPaired: _onPaired)),
+                : PairingScreen(
+                    onPaired: _onPaired,
+                    initialPairingLink: _pendingPairingLink,
+                  )),
     );
   }
 }

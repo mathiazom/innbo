@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/mathiazom/innbo/backend/internal/auth"
 	"github.com/mathiazom/innbo/backend/internal/config"
 	"github.com/mathiazom/innbo/backend/internal/db"
+	"github.com/mdp/qrterminal/v3"
 )
 
 // pairingCodeTTL is how long a bootstrap pairing code stays valid before a
@@ -64,6 +66,25 @@ func runBootstrapPairing() error {
 		return fmt.Errorf("storing pairing code: %w", err)
 	}
 
+	// The app registers an "innbo://pair" intent-filter, so scanning this
+	// link (in-app, or via the phone's stock camera app) opens it straight
+	// to pairing. The url param is omitted when PUBLIC_URL isn't set, so
+	// the code still scans in but the server URL has to be typed by hand.
+	query := url.Values{"code": {code}}
+	if cfg.PublicURL != "" {
+		query.Set("url", cfg.PublicURL)
+	}
+	payload := "innbo://pair?" + query.Encode()
+	// Half-block rendering packs two QR module-rows into one printed
+	// terminal row via unicode half-block glyphs — needed because a
+	// terminal character cell is roughly twice as tall as it is wide, so
+	// one-module-per-character (the package's default) prints a QR
+	// stretched vertically instead of square.
+	qrterminal.GenerateHalfBlock(payload, qrterminal.L, os.Stdout)
+
+	if cfg.PublicURL != "" {
+		fmt.Printf("Server URL: %s\n", cfg.PublicURL)
+	}
 	fmt.Printf("Pairing code (valid %s): %s\n", pairingCodeTTL, code)
 	return nil
 }

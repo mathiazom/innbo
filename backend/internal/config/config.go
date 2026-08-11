@@ -11,6 +11,7 @@ type Config struct {
 	ListenAddr   string
 	StorageDir   string
 	PowerSyncURL string
+	PublicURL    string
 }
 
 func Load() (Config, error) {
@@ -20,6 +21,9 @@ func Load() (Config, error) {
 		ListenAddr:   envOr("LISTEN_ADDR", ":8080"),
 		StorageDir:   envOr("STORAGE_DIR", "/data/images"),
 		PowerSyncURL: os.Getenv("POWERSYNC_PUBLIC_URL"),
+		// PublicURL is optional: bootstrap-pairing still prints a QR
+		// without it, just without the server URL baked in.
+		PublicURL: os.Getenv("PUBLIC_URL"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")

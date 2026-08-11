@@ -1,15 +1,23 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../device_credentials.dart';
+import 'pairing_link.dart';
+import 'qr_scan_screen.dart';
 
 class PairingScreen extends StatefulWidget {
   final void Function(DeviceCredentials credentials) onPaired;
+  final PairingLinkData? initialPairingLink;
 
-  const PairingScreen({super.key, required this.onPaired});
+  const PairingScreen({
+    super.key,
+    required this.onPaired,
+    this.initialPairingLink,
+  });
 
   @override
   State<PairingScreen> createState() => _PairingScreenState();
@@ -22,6 +30,39 @@ class _PairingScreenState extends State<PairingScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _serverUrlController.text = widget.initialPairingLink?.serverUrl ?? '';
+    _codeController.text = widget.initialPairingLink?.code ?? '';
+    _fillDefaultDeviceName();
+  }
+
+  Future<void> _fillDefaultDeviceName() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final name = Platform.isAndroid
+          ? (await deviceInfo.androidInfo).model
+          : (await deviceInfo.macOsInfo).modelName;
+      if (mounted && _nameController.text.isEmpty) {
+        setState(() => _nameController.text = name);
+      }
+    } catch (e) {
+      debugPrint('Could not read device name: $e');
+    }
+  }
+
+  Future<void> _scanQrCode() async {
+    final data = await Navigator.of(context).push<PairingLinkData>(
+      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+    );
+    if (data == null) return;
+    setState(() {
+      if (data.serverUrl != null) _serverUrlController.text = data.serverUrl!;
+      if (data.code != null) _codeController.text = data.code!;
+    });
+  }
 
   @override
   void dispose() {
@@ -85,6 +126,14 @@ class _PairingScreenState extends State<PairingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (Platform.isAndroid) ...[
+                FilledButton.icon(
+                  onPressed: _loading ? null : _scanQrCode,
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Skann QR-kode'),
+                ),
+                const SizedBox(height: 24),
+              ],
               TextFormField(
                 controller: _serverUrlController,
                 decoration: const InputDecoration(

@@ -38,6 +38,7 @@ services:
       LISTEN_ADDR: :8080
       STORAGE_DIR: /data/images
       POWERSYNC_PUBLIC_URL: ${POWERSYNC_PUBLIC_URL}
+      PUBLIC_URL: ${PUBLIC_URL:-}
     volumes:
       - backend-images:/data/images
     depends_on:

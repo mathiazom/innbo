@@ -2,6 +2,7 @@
     <!-- Required in the main manifest (not just debug/profile) since
          release builds are what actually get sideloaded per the plan. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -26,6 +27,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Lets the OS (including a stock camera app recognizing a
+                 scanned link) offer to open the app on the pairing QR
+                 code printed by `bootstrap-pairing`, see cli.go. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="innbo" android:host="pair"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
