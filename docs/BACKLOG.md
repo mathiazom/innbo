@@ -24,18 +24,15 @@ for everything after it, per the full scope in
 - [x] `placement` field on item — freeform optional text, captured at creation only (see below). Migration `0003_item_placement.sql`, `upload.go` allowlist, `schema.dart`, `kClientVersion` bump — see [ADR-0004](adr/0004-schema-migration-strategy.md).
 - [x] `image` + cover image handling — local attach/view/delete (first slice) plus cross-device sync via the backend (this slice) — see [ADR-0006](adr/0006-image-storage-and-sync.md)
 
-## Client
-
-- [ ] selectable text
-
 
 ## Platform / infra
+- [ ] seperate client / api releases
+- [ ] Export to format with high compatibility and flexibility (json?)
 - [ ] Restore-from-device flow — see [ADR-0003](adr/0003-restore-from-device.md)
 - [ ] Revoke a paired device's access from the device overview screen — deliberately scoped out of the device overview slice (see grilling notes) to keep it display-only; `paired_device.revoked_at` already exists (unused) and `device.secret_hash` invalidation would need a new backend endpoint, not just a synced-row flag.
 - [ ] Background image sync when the app isn't open (`workmanager`/`connectivity_plus`) — deferred from the image upload/download API slice: full-res currently only fetches on-demand (never proactively, not even on Wi-Fi), and thumbnails only sync via foreground eager-fetch while the app happens to be open. Both were explicitly scoped out to keep that slice small.
 - [ ] Persistent retry queue for failed image uploads — currently a failed upload gets a one-shot manual "tap to retry" snackbar (deliberate scope cut, see grilling notes in the image API slice); doesn't survive an app restart, so a failed upload during a closed app session is silently never retried until someone happens to revisit that photo.
 - [ ] Itemized unsynced-changes list in the update-required guard — [`unsynced_changes_guard.dart`](../client/lib/sync/unsynced_changes_guard.dart) currently shows only a count of pending local writes when a schema-mismatched client is blocked (deliberate v0 scope cut, deferred past proving the pipeline); a user facing "discard and continue" has no way to see *what* they'd be discarding.
-- [ ] Export
 - [ ] Web client
 - [ ] Backend-proxied PowerSync sync — client would talk to the backend only (no direct PowerSync network exposure); deferred out of the "backend url on pairing" slice since it means relaying PowerSync's sync protocol (long-lived streaming, auth passthrough, reconnects) through the Go backend, an ADR-0007-level architecture change, not a pairing UX tweak.
 - [ ] Orphaned image blob cleanup — the upload API accepts bytes for a client-generated id without confirming the metadata row ever arrives (see ADR-0006's accepted best-effort tradeoff), and there's no sweep for blobs whose row never synced (e.g. an abandoned item-creation flow). Currently accepted as harmless; revisit if storage usage ever becomes a concern.
