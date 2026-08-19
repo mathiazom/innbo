@@ -100,8 +100,15 @@ class ItemDetailScreen extends StatelessWidget {
         builder: (context) => Scaffold(
           backgroundColor: Colors.black,
           body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.of(context).pop(),
-            child: Center(child: InteractiveViewer(child: Image.file(file))),
+            child: InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 2.5,
+              child: SizedBox.expand(
+                child: Image.file(file, fit: BoxFit.contain),
+              ),
+            ),
           ),
         ),
       ),
