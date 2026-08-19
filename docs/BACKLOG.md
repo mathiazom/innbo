@@ -26,7 +26,7 @@ for everything after it, per the full scope in
 
 
 ## Platform / infra
-- [ ] seperate client / api releases
+- [x] seperate client / api releases — client tags `client-vX.Y.Z`, backend gets its own semver (`backend/internal/httpapi/VERSION`, tagged `api-vX.Y.Z`); each triggers only its own CI workflow. `scripts/release.sh` is now a single interactive entrypoint that prompts for client/api/both. Backend dropped its continuous build-on-push-to-main trigger — now only builds/deploys via an explicit `api-v` release. `GET /version`/about dialog now show the backend's real semver instead of a commit SHA. ADR-0004's breaking-migration checklist updated accordingly.
 - [ ] Export to format with high compatibility and flexibility (json?)
 - [ ] Restore-from-device flow — see [ADR-0003](adr/0003-restore-from-device.md)
 - [ ] Revoke a paired device's access from the device overview screen — deliberately scoped out of the device overview slice (see grilling notes) to keep it display-only; `paired_device.revoked_at` already exists (unused) and `device.secret_hash` invalidation would need a new backend endpoint, not just a synced-row flag.

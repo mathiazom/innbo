@@ -1,19 +1,17 @@
 name: Backend image
 
 on:
-  push:
-    branches: [main]
-    paths: ["backend/**", ".github/workflows/backend-image.yml"]
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to build for (optional; leave empty to build the default branch)"
-        required: false
+        description: "Existing api-vX.Y.Z release tag to build for"
+        required: true
 
 jobs:
   build-and-push:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'api-v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag || '' }}
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - uses: docker/login-action@v3
         with:
@@ -34,9 +32,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/innbo-backend
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-            type=raw,value=${{ github.event.release.tag_name || inputs.tag }},enable=${{ github.event.release.tag_name != '' || inputs.tag != '' }}
+            type=raw,value=latest
+            type=raw,value=${{ github.event.release.tag_name || inputs.tag }}
 
       - uses: docker/build-push-action@v6
         with:
@@ -44,4 +41,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: GIT_COMMIT=${{ github.sha }}

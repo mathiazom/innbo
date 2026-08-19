@@ -9,7 +9,7 @@ import (
 
 func TestHandleVersion(t *testing.T) {
 	old := Version
-	Version = "abcdef1234567890"
+	Version = "1.2.3"
 	defer func() { Version = old }()
 
 	req := httptest.NewRequest("GET", "/version", nil)
@@ -26,7 +26,7 @@ func TestHandleVersion(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("json.Unmarshal() error: %v", err)
 	}
-	if body.Version != "abcdef1" {
-		t.Fatalf("version = %q, want %q", body.Version, "abcdef1")
+	if body.Version != "1.2.3" {
+		t.Fatalf("version = %q, want %q", body.Version, "1.2.3")
 	}
 }

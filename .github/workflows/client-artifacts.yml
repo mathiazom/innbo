@@ -12,11 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to build for (e.g. v0.1.0)"
+        description: "Existing client-vX.Y.Z release tag to build for"
         required: true
 
 jobs:
   android:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'client-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -65,6 +66,7 @@ jobs:
           files: client/build/app/outputs/flutter-apk/app-release.apk
 
   macos:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'client-v')
     runs-on: macos-latest
     permissions:
       contents: write

@@ -12,10 +12,10 @@ import 'devices/device_overview_screen.dart';
 import 'time_format.dart';
 
 /// Shows an "about" dialog with the running client's version (from
-/// pubspec.yaml in release builds, a "dev" placeholder otherwise — matching
-/// the server's own fallback in backend/internal/httpapi/version.go), the
-/// paired server's version (fetched from GET /version, "utilgjengelig" if
-/// unreachable), and the PowerSync connection/sync status.
+/// pubspec.yaml in release builds, a "dev" placeholder otherwise), the
+/// paired server's own semver (fetched from GET /version, "utilgjengelig" if
+/// unreachable — see backend/internal/httpapi/version.go), and the
+/// PowerSync connection/sync status.
 Future<void> showAboutAppDialog(
   BuildContext context,
   DeviceCredentials credentials,

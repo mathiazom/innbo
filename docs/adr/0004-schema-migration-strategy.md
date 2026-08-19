@@ -41,10 +41,14 @@ Run through these steps top-to-bottom during a breaking migration:
 3. Tell every household user: **stop using the app now** until step 6.
    This isn't optional — the sync check in step 2 only proves the queue
    was empty at that moment, not that it stays empty until cutover.
-4. Deploy the new backend/PowerSync images (`docker compose up -d`).
-   This applies the migration and makes the new required version live in
-   the same step — every device still on the old client now gets `426`
-   on its next `/token` request.
+4. Cut a backend release (`scripts/release.sh`, select `api`) to build and
+   push the new backend image, then deploy it (`docker compose pull &&
+   docker compose up -d`). Backend images are no longer built continuously
+   on every push to `main` — see the "separate client / api releases"
+   slice — so the release script must run first. This applies the
+   migration and makes the new required version live in the same step —
+   every device still on the old client now gets `426` on its next
+   `/token` request.
 5. Sanity-check the deploy actually picked up the new required version,
    using any already-paired device's real credentials (the version
    check in `handleToken` runs *after* credential validation, so a
@@ -57,8 +61,9 @@ Run through these steps top-to-bottom during a breaking migration:
    migration's number. This mainly catches "forgot the marker comment,"
    since the value itself can't drift from what was just deployed.
 6. Bump `kClientVersion` in `client/lib/client_version.dart` to match the
-   new migration's number, cut a client release (`scripts/release.sh`),
-   tell users it's safe to use the app again, and update each device.
+   new migration's number, cut a client release (`scripts/release.sh`,
+   select `client`, tagged `client-vX.Y.Z`), tell users it's safe to use
+   the app again, and update each device.
 
 ## Re-checking version past token-mint time
 
