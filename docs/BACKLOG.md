@@ -19,12 +19,12 @@ for everything after it, per the full scope in
 - [ ] Dispose action (soft-delete, `disposed_at`)
 - [ ] `quantity`, `purchase_price`, `acquired_date`, `serial_number` on item
 - [ ] move item between rooms
-- [ ] `container` (nesting under room/container)
 - [ ] documentation files on item (pdf)
 - [ ] timestamped `note` on item (with activity timeline as list view)
 - [ ] `item_history` audit trail — see [ADR-0002](adr/0002-item-history-audit-trail.md)
 - [ ] Delete action (hard-delete, erases history)
 - [x] `placement` field on item — freeform optional text, captured at creation only (see below). Migration `0003_item_placement.sql`, `upload.go` allowlist, `schema.dart`, `kClientVersion` bump — see [ADR-0004](adr/0004-schema-migration-strategy.md).
+- [x] `container` (nesting under room/container) — new `container` table (name, belongs to either a room or another container, nesting allowed), `item.container_id` (nullable, alongside the unchanged `room_id`). Parent assignment is write-once at creation, matching `placement`'s precedent — moving an item/container between parents is a separate future slice (see "move item between rooms" above). Room/container browsing is now a recursive folder-like `ContentsScreen` (containers first, then items, both alphabetical) with a single "+" type picker at every level, replacing the old flat `ItemListScreen`; a muted breadcrumb trail shows ancestry on both the browsing screen and item detail. Deleting a room/container that still holds children is blocked for free via the FK constraints (no delete UI exists yet, so no new code needed). Migration `0006_container.sql`, `upload.go` allowlist, `schema.dart`, `sync-rules.yaml`, `kClientVersion` bump to 6 — see [ADR-0004](adr/0004-schema-migration-strategy.md).
 - [x] `image` + cover image handling — local attach/view/delete (first slice) plus cross-device sync via the backend (this slice) — see [ADR-0006](adr/0006-image-storage-and-sync.md)
 
 
