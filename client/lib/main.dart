@@ -92,6 +92,7 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     final dir = await getApplicationSupportDirectory();
     final db = PowerSyncDatabase(schema: schema, path: '${dir.path}/innbo.db');
     await db.initialize();
+    await clearStuckPairedDeviceUpload(db);
 
     final connector = InnboBackendConnector(
       credentials: credentials,
