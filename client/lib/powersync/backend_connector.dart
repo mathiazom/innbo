@@ -98,7 +98,10 @@ class InnboBackendConnector extends PowerSyncBackendConnector {
       invalidateCredentials();
     }
     if (response.statusCode != 204) {
-      throw http.ClientException('upload failed (${response.statusCode})', uri);
+      throw http.ClientException(
+        'upload failed (${response.statusCode}): ${response.body}',
+        uri,
+      );
     }
 
     await batch.complete();

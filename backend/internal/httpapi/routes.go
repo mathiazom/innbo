@@ -3,6 +3,7 @@ package httpapi
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -48,16 +49,30 @@ func logRequests(jwtSecret string, requiredClientVersion int64, next http.Handle
 		if err != nil {
 			deviceID = "-"
 		}
-		log.Printf("%s %s -> %d (%s) device=%s", r.Method, r.URL.Path, sw.status, time.Since(start), deviceID)
+		if sw.status >= http.StatusBadRequest && sw.errBody != "" {
+			log.Printf("%s %s -> %d (%s) device=%s error=%q", r.Method, r.URL.Path, sw.status, time.Since(start), deviceID, strings.TrimSpace(sw.errBody))
+		} else {
+			log.Printf("%s %s -> %d (%s) device=%s", r.Method, r.URL.Path, sw.status, time.Since(start), deviceID)
+		}
 	})
 }
 
 type statusWriter struct {
 	http.ResponseWriter
-	status int
+	status  int
+	errBody string
 }
 
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+// Write captures the response body for error statuses so it lands in the
+// access log
+func (w *statusWriter) Write(b []byte) (int, error) {
+	if w.status >= http.StatusBadRequest {
+		w.errBody += string(b)
+	}
+	return w.ResponseWriter.Write(b)
 }
