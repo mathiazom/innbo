@@ -7,6 +7,7 @@ import 'package:powersync/powersync.dart';
 
 import 'device_credentials.dart';
 import 'devices/device_status_sync.dart';
+import 'items/upload_queue.dart';
 import 'pairing/pairing_link.dart';
 import 'pairing/pairing_screen.dart';
 import 'powersync/backend_connector.dart';
@@ -76,6 +77,7 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
         db != null &&
         credentials != null &&
         db.currentStatus.hasSynced == true) {
+      UploadQueue.retryDue(db, credentials);
       refreshDeviceStatus(db, credentials);
     }
   }
@@ -92,6 +94,8 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     final dir = await getApplicationSupportDirectory();
     final db = PowerSyncDatabase(schema: schema, path: '${dir.path}/innbo.db');
     await db.initialize();
+    await UploadQueue.ensureTable(db);
+    await UploadQueue.backfill(db);
 
     final connector = InnboBackendConnector(
       credentials: credentials,
@@ -104,6 +108,7 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
       },
     );
     await db.connect(connector: connector);
+    UploadQueue.retryDue(db, credentials);
 
     setState(() {
       _db = db;

@@ -33,5 +33,7 @@ const schema = Schema([
     Column.text('platform'),
     Column.integer('last_sync_at'), // epoch millis
     Column.integer('image_completeness_pct'),
+    Column.integer('pending_upload_count'),
+    Column.integer('failed_upload_count'),
   ]),
 ]);

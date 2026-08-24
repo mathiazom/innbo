@@ -1,6 +1,7 @@
 import 'package:powersync/powersync.dart';
 
 import '../device_credentials.dart';
+import '../items/upload_queue.dart';
 import 'image_completeness.dart';
 
 /// Recomputes and writes this device's own paired_device row — see
@@ -13,12 +14,15 @@ Future<void> refreshDeviceStatus(
 ) async {
   final lastSyncedAt = db.currentStatus.lastSyncedAt;
   final completenessPct = await computeImageCompletenessPct(db);
+  final uploadCounts = await UploadQueue.counts(db);
   await db.execute(
-    'UPDATE paired_device SET last_sync_at = ?, image_completeness_pct = ? '
-    'WHERE device_id = ?',
+    'UPDATE paired_device SET last_sync_at = ?, image_completeness_pct = ?, '
+    'pending_upload_count = ?, failed_upload_count = ? WHERE device_id = ?',
     [
       lastSyncedAt?.millisecondsSinceEpoch,
       completenessPct,
+      uploadCounts.pending,
+      uploadCounts.failed,
       credentials.deviceId,
     ],
   );

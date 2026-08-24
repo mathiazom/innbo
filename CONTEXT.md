@@ -19,7 +19,7 @@ The act of granting a device access to the household's server via a token/pairin
 _Avoid_: Login, sign-in, user account
 
 **Paired device**:
-A structured, synced record of one device that has completed Device pairing: name, platform (mobile/desktop/web), last-sync time, and approximate full-res image completeness. Synced through the server so every device can see every other paired device's status — the basis for the household-wide Device overview and for judging restore candidates. Can be revoked, which invalidates that device's pairing token.
+A structured, synced record of one device that has completed Device pairing: name, platform (mobile/desktop/web), last-sync time, approximate full-res image completeness, and its own pending/failed image-upload counts. Synced through the server so every device can see every other paired device's status — the basis for the household-wide Device overview and for judging restore candidates. Can be revoked, which invalidates that device's pairing token.
 _Avoid_: Session, client
 
 **Device overview**:

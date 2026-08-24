@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../device_credentials.dart';
 import 'image_store.dart';
 import 'image_sync.dart';
+import 'upload_queue.dart';
 
 const _uuid = Uuid();
 final _picker = ImagePicker();
@@ -39,16 +40,19 @@ class ItemDetailScreen extends StatelessWidget {
       [id, itemId, DateTime.now().millisecondsSinceEpoch],
     );
     final uploaded = await ImageSync.uploadFull(credentials, id);
-    if (!uploaded && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Kunne ikke laste opp bildet.'),
-          action: SnackBarAction(
-            label: 'Prøv igjen',
-            onPressed: () => ImageSync.uploadFull(credentials, id),
+    if (!uploaded) {
+      await UploadQueue.enqueue(db, id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Kunne ikke laste opp bildet.'),
+            action: SnackBarAction(
+              label: 'Prøv igjen',
+              onPressed: () => UploadQueue.retryDue(db, credentials),
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -109,6 +113,26 @@ class ItemDetailScreen extends StatelessWidget {
                 child: Image.file(file, fit: BoxFit.contain),
               ),
             ),
+          ),
+          bottomNavigationBar: StreamBuilder<UploadStatus>(
+            stream: UploadQueue.statusStream(db, imageId),
+            builder: (context, snapshot) {
+              if (snapshot.data != UploadStatus.failed) {
+                return const SizedBox.shrink();
+              }
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FilledButton(
+                    onPressed: () async {
+                      await UploadQueue.resetForManualRetry(db, imageId);
+                      await UploadQueue.retryDue(db, credentials);
+                    },
+                    child: const Text('Prøv å laste opp igjen'),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -183,23 +207,30 @@ class ItemDetailScreen extends StatelessWidget {
               return GestureDetector(
                 onTap: () => _viewImage(context, id),
                 onLongPress: () => _deleteImage(context, id),
-                child: FutureBuilder<File?>(
-                  future: ImageSync.ensureLocalThumbnail(credentials, id),
-                  builder: (context, snapshot) {
-                    final file = snapshot.data;
-                    if (file == null) return const SizedBox.shrink();
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.cover,
-                        // The file may be a full-res original (see
-                        // ImageSync.ensureLocalThumbnail) — decode at
-                        // roughly grid-cell size, not full resolution.
-                        cacheWidth: 300,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: FutureBuilder<File?>(
+                        future: ImageSync.ensureLocalThumbnail(credentials, id),
+                        builder: (context, snapshot) {
+                          final file = snapshot.data;
+                          if (file == null) return const SizedBox.shrink();
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              // The file may be a full-res original (see
+                              // ImageSync.ensureLocalThumbnail) — decode at
+                              // roughly grid-cell size, not full resolution.
+                              cacheWidth: 300,
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                    _UploadStatusBadge(db: db, imageId: id),
+                  ],
                 ),
               );
             },
@@ -210,6 +241,45 @@ class ItemDetailScreen extends StatelessWidget {
         onPressed: () => _pickAndAddImage(context),
         child: const Icon(Icons.add_a_photo),
       ),
+    );
+  }
+}
+
+/// Small overlay on a grid tile showing whether its upload is pending
+/// retry or has permanently failed (see UploadQueue) — invisible once the
+/// upload has succeeded and its upload_queue row is gone. Purely a status
+/// indicator: a manual retry, when needed, lives in the full-screen image
+/// view instead — a small overlaid icon is not a reliable tap target on
+/// mobile, since it competes in the same gesture arena as the tile's own
+/// tap-to-view handler.
+class _UploadStatusBadge extends StatelessWidget {
+  final PowerSyncDatabase db;
+  final String imageId;
+
+  const _UploadStatusBadge({required this.db, required this.imageId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<UploadStatus>(
+      stream: UploadQueue.statusStream(db, imageId),
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? UploadStatus.none;
+        if (status == UploadStatus.none) return const SizedBox.shrink();
+        final failed = status == UploadStatus.failed;
+        return Positioned(
+          top: 4,
+          right: 4,
+          child: CircleAvatar(
+            radius: 10,
+            backgroundColor: failed ? Colors.red : Colors.amber,
+            child: Icon(
+              failed ? Icons.priority_high : Icons.schedule,
+              size: 12,
+              color: Colors.white,
+            ),
+          ),
+        );
+      },
     );
   }
 }

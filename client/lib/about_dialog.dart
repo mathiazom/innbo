@@ -9,6 +9,7 @@ import 'package:powersync/powersync.dart' hide Column;
 
 import 'device_credentials.dart';
 import 'devices/device_overview_screen.dart';
+import 'items/upload_queue.dart';
 import 'time_format.dart';
 
 /// Shows an "about" dialog with the running client's version (from
@@ -60,6 +61,7 @@ Future<void> showAboutAppDialog(
                         return Text('Ulagrede endringer: $text');
                       },
                     ),
+                    _UploadQueueStatusRow(db: db, credentials: credentials),
                     if (status.anyError != null) ...[
                       const SizedBox(height: 4),
                       const Text(
@@ -145,6 +147,68 @@ class _ErrorCodeBlock extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shows this device's live pending/failed image-upload counts, with a
+/// button to force an immediate retry of every pending image, bypassing
+/// UploadQueue's backoff — the only way to tell "genuinely stuck" apart
+/// from "still waiting out its backoff" without waiting it out.
+class _UploadQueueStatusRow extends StatefulWidget {
+  final PowerSyncDatabase db;
+  final DeviceCredentials credentials;
+
+  const _UploadQueueStatusRow({required this.db, required this.credentials});
+
+  @override
+  State<_UploadQueueStatusRow> createState() => _UploadQueueStatusRowState();
+}
+
+class _UploadQueueStatusRowState extends State<_UploadQueueStatusRow> {
+  late Future<UploadCounts> _counts = UploadQueue.counts(widget.db);
+  bool _retrying = false;
+
+  Future<void> _retryNow() async {
+    setState(() => _retrying = true);
+    await UploadQueue.retryAllNow(widget.db, widget.credentials);
+    if (!mounted) return;
+    setState(() {
+      _retrying = false;
+      _counts = UploadQueue.counts(widget.db);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FutureBuilder<UploadCounts>(
+            future: _counts,
+            builder: (context, snapshot) {
+              final counts = snapshot.data;
+              final text = counts == null
+                  ? '…'
+                  : '${counts.pending} venter, ${counts.failed} feilet';
+              return Text('Bilder som ikke er lastet opp: $text');
+            },
+          ),
+        ),
+        IconButton(
+          icon: _retrying
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh, size: 18),
+          tooltip: 'Prøv å laste opp nå',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: _retrying ? null : _retryNow,
+        ),
+      ],
     );
   }
 }

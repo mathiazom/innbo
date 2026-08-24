@@ -33,7 +33,7 @@ var allowedColumns = map[string][]string{
 	"room":          {"name"},
 	"item":          {"name", "room_id", "placement"},
 	"image":         {"item_id", "created_at"},
-	"paired_device": {"name", "last_sync_at", "image_completeness_pct"},
+	"paired_device": {"name", "last_sync_at", "image_completeness_pct", "pending_upload_count", "failed_upload_count"},
 }
 
 func handleUpload(pool *pgxpool.Pool, storageDir string) http.HandlerFunc {

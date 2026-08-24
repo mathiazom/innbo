@@ -75,8 +75,8 @@ class _DeviceOverviewScreenState extends State<DeviceOverviewScreen> {
         db: widget.db,
         query: widget.db.watch(
           'SELECT device_id, name, platform, last_sync_at, '
-          'image_completeness_pct FROM paired_device '
-          'ORDER BY last_sync_at DESC',
+          'image_completeness_pct, pending_upload_count, failed_upload_count '
+          'FROM paired_device ORDER BY last_sync_at DESC',
         ),
         emptyText: 'Ingen parede enheter ennå.',
         itemBuilder: (context, rows) => ListView.builder(
@@ -88,6 +88,8 @@ class _DeviceOverviewScreenState extends State<DeviceOverviewScreen> {
             final platform = row['platform'] as String?;
             final lastSyncAtMillis = row['last_sync_at'] as int?;
             final completenessPct = row['image_completeness_pct'] as int?;
+            final pendingUploadCount = row['pending_upload_count'] as int?;
+            final failedUploadCount = row['failed_upload_count'] as int?;
             final isThisDevice = deviceId == widget.credentials.deviceId;
 
             return ListTile(
@@ -120,7 +122,8 @@ class _DeviceOverviewScreenState extends State<DeviceOverviewScreen> {
               ),
               subtitle: Text(
                 'Sist synkronisert: ${formatRelativeTime(lastSyncAtMillis == null ? null : DateTime.fromMillisecondsSinceEpoch(lastSyncAtMillis))} · '
-                'Bilder lagret lokalt: ${completenessPct ?? 0}%',
+                'Bilder lagret lokalt: ${completenessPct ?? 0}%'
+                '${(pendingUploadCount ?? 0) > 0 || (failedUploadCount ?? 0) > 0 ? ' · Opplasting: ${pendingUploadCount ?? 0} venter, ${failedUploadCount ?? 0} feilet' : ''}',
               ),
               onTap: isThisDevice ? () => _rename(name) : null,
             );

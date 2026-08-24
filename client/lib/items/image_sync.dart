@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/painting.dart' show FileImage, PaintingBinding;
 import 'package:http/http.dart' as http;
 
@@ -73,10 +74,16 @@ class ImageSync {
     String imageId,
   ) async {
     final file = await ImageStore.localFullFile(imageId);
-    if (!await file.exists()) return false;
+    if (!await file.exists()) {
+      debugPrint('ImageSync.uploadFull($imageId): no local file, skipping');
+      return false;
+    }
 
     final token = await _fetchToken(credentials);
-    if (token == null) return false;
+    if (token == null) {
+      debugPrint('ImageSync.uploadFull($imageId): failed to fetch token');
+      return false;
+    }
 
     try {
       final uri = Uri.parse(credentials.serverUrl).resolve('/images/$imageId');
@@ -90,8 +97,15 @@ class ImageSync {
             body: await file.readAsBytes(),
           )
           .timeout(_requestTimeout);
+      if (response.statusCode != 204) {
+        debugPrint(
+          'ImageSync.uploadFull($imageId): server returned '
+          '${response.statusCode}: ${response.body}',
+        );
+      }
       return response.statusCode == 204;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('ImageSync.uploadFull($imageId): $e');
       return false;
     }
   }
