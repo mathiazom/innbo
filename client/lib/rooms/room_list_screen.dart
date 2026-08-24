@@ -3,8 +3,8 @@ import 'package:powersync/powersync.dart';
 import 'package:uuid/uuid.dart';
 
 import '../about_dialog.dart';
+import '../containers/contents_screen.dart';
 import '../device_credentials.dart';
-import '../items/item_list_screen.dart';
 import '../powersync/synced_list_view.dart';
 
 const _uuid = Uuid();
@@ -73,11 +73,13 @@ class RoomListScreen extends StatelessWidget {
               title: Text(name),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ItemListScreen(
+                  builder: (_) => ContentsScreen(
                     db: db,
                     credentials: credentials,
                     roomId: id,
-                    roomName: name,
+                    containerId: null,
+                    title: name,
+                    breadcrumbs: const [],
                   ),
                 ),
               ),

@@ -31,7 +31,8 @@ type crudOp struct {
 // and must never be interpolated into SQL unchecked.
 var allowedColumns = map[string][]string{
 	"room":          {"name"},
-	"item":          {"name", "room_id", "placement"},
+	"container":     {"name", "room_id", "parent_container_id"},
+	"item":          {"name", "room_id", "container_id", "placement"},
 	"image":         {"item_id", "created_at"},
 	"paired_device": {"name", "last_sync_at", "image_completeness_pct", "pending_upload_count", "failed_upload_count"},
 }

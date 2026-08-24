@@ -4,6 +4,7 @@ bucket_definitions:
   global:
     data:
       - SELECT * FROM room
+      - SELECT * FROM container
       - SELECT * FROM item
       - SELECT * FROM image
       - SELECT * FROM paired_device

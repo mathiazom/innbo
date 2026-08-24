@@ -2,6 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart';
 import 'package:sqlite3/common.dart' show ResultSet;
 
+/// Gates its [builder] behind the database's initial sync having
+/// completed, showing a spinner until then — shared by any screen that
+/// needs to distinguish "still syncing" from "confirmed empty" for one or
+/// more queries (see [SyncedListView] for the single-query case).
+class SyncGate extends StatelessWidget {
+  final PowerSyncDatabase db;
+  final WidgetBuilder builder;
+
+  const SyncGate({super.key, required this.db, required this.builder});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SyncStatus>(
+      stream: db.statusStream,
+      initialData: db.currentStatus,
+      builder: (context, snapshot) {
+        if (snapshot.data?.hasSynced != true) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return builder(context);
+      },
+    );
+  }
+}
+
 /// Renders a PowerSync-backed list, distinguishing "still syncing" from
 /// "confirmed empty" so [emptyText] never flashes before the initial sync
 /// (or the query's first emission) has actually completed.
@@ -21,25 +46,19 @@ class SyncedListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<SyncStatus>(
-      stream: db.statusStream,
-      initialData: db.currentStatus,
-      builder: (context, statusSnapshot) {
-        if (statusSnapshot.data?.hasSynced != true) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return StreamBuilder<ResultSet>(
-          stream: query,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const SizedBox.shrink();
-            final rows = snapshot.data!;
-            if (rows.isEmpty) {
-              return Center(child: Text(emptyText));
-            }
-            return itemBuilder(context, rows);
-          },
-        );
-      },
+    return SyncGate(
+      db: db,
+      builder: (context) => StreamBuilder<ResultSet>(
+        stream: query,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink();
+          final rows = snapshot.data!;
+          if (rows.isEmpty) {
+            return Center(child: Text(emptyText));
+          }
+          return itemBuilder(context, rows);
+        },
+      ),
     );
   }
 }

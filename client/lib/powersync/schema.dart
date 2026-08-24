@@ -5,9 +5,15 @@ import 'package:powersync/powersync.dart';
 /// (internal/httpapi/upload.go's allowedColumns).
 const schema = Schema([
   Table('room', [Column.text('name')]),
+  Table('container', [
+    Column.text('name'),
+    Column.text('room_id'),
+    Column.text('parent_container_id'),
+  ]),
   Table('item', [
     Column.text('name'),
     Column.text('room_id'),
+    Column.text('container_id'),
     Column.text('placement'),
   ]),
   // See backend/migrations/0002_image.sql and upload.go's allowedColumns.
