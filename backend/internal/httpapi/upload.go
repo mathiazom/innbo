@@ -105,10 +105,11 @@ func applyPut(ctx context.Context, tx pgx.Tx, op crudOp) error {
 	placeholders := make([]string, 0, len(cols))
 	updateClauses := make([]string, 0, len(cols))
 	for i, col := range cols {
-		v, ok := op.Data[col]
-		if !ok {
-			return fmt.Errorf("missing field %q for %s", col, op.Table)
-		}
+		// A PUT only includes a column when it's non-null (PowerSync's own
+		// contract), so an absent key means null, not a validation error —
+		// Postgres's NOT NULL constraints already reject genuinely required
+		// columns.
+		v := op.Data[col]
 		values = append(values, v)
 		placeholders = append(placeholders, fmt.Sprintf("$%d", i+2))
 		updateClauses = append(updateClauses, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
