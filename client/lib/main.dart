@@ -74,7 +74,8 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     final credentials = _credentials;
     if (state == AppLifecycleState.resumed &&
         db != null &&
-        credentials != null) {
+        credentials != null &&
+        db.currentStatus.hasSynced == true) {
       refreshDeviceStatus(db, credentials);
     }
   }
