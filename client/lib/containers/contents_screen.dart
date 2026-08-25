@@ -10,13 +10,37 @@ import '../items/image_sync.dart';
 import '../items/item_detail_screen.dart';
 import '../powersync/synced_list_view.dart';
 import 'breadcrumb_bar.dart';
+import 'move_destination_sheet.dart';
 
 const _uuid = Uuid();
+
+/// A held item/container multiselect that's being moved to a new room or
+/// container.
+class MoveSelection {
+  final Map<String, String> itemIds; // id -> name
+  final Map<String, String> containerIds; // id -> name
+  final String originRoomId;
+  final String? originContainerId;
+
+  MoveSelection({
+    required this.itemIds,
+    required this.containerIds,
+    required this.originRoomId,
+    required this.originContainerId,
+  });
+
+  String get summary =>
+      'Flytter: ${[...containerIds.values, ...itemIds.values].join(', ')}';
+}
 
 /// Folder-like browsing of a room's or a container's direct contents —
 /// child containers first, then items. Reused recursively: tapping a
 /// container pushes another [ContentsScreen] scoped one level deeper.
-class ContentsScreen extends StatelessWidget {
+///
+/// Also doubles as the multiselect UI: a long-press on a tile enters
+/// selection mode (confined to this screen); tapping "Flytt" there opens a
+/// [MoveDestinationSheet] to pick where the selection goes.
+class ContentsScreen extends StatefulWidget {
   final PowerSyncDatabase db;
   final DeviceCredentials credentials;
 
@@ -41,6 +65,64 @@ class ContentsScreen extends StatelessWidget {
     required this.title,
     required this.breadcrumbs,
   });
+
+  @override
+  State<ContentsScreen> createState() => _ContentsScreenState();
+}
+
+class _ContentsScreenState extends State<ContentsScreen> {
+  final Map<String, String> _selectedItems = {};
+  final Map<String, String> _selectedContainers = {};
+
+  bool get _selecting =>
+      _selectedItems.isNotEmpty || _selectedContainers.isNotEmpty;
+
+  void _toggleItem(String id, String name) {
+    setState(() {
+      if (_selectedItems.containsKey(id)) {
+        _selectedItems.remove(id);
+      } else {
+        _selectedItems[id] = name;
+      }
+    });
+  }
+
+  void _toggleContainer(String id, String name) {
+    setState(() {
+      if (_selectedContainers.containsKey(id)) {
+        _selectedContainers.remove(id);
+      } else {
+        _selectedContainers[id] = name;
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedItems.clear();
+      _selectedContainers.clear();
+    });
+  }
+
+  Future<void> _startMove() async {
+    final selection = MoveSelection(
+      itemIds: Map.of(_selectedItems),
+      containerIds: Map.of(_selectedContainers),
+      originRoomId: widget.roomId,
+      originContainerId: widget.containerId,
+    );
+    final moved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => MoveDestinationSheet(db: widget.db, selection: selection),
+    );
+    if (moved == true && mounted) {
+      _clearSelection();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Flyttet.')));
+    }
+  }
 
   Future<void> _addContainer(BuildContext context) async {
     final controller = TextEditingController();
@@ -67,9 +149,14 @@ class ContentsScreen extends StatelessWidget {
     );
 
     if (name == null || name.isEmpty) return;
-    await db.execute(
+    await widget.db.execute(
       'INSERT INTO container (id, name, room_id, parent_container_id) VALUES (?, ?, ?, ?)',
-      [_uuid.v4(), name, containerId == null ? roomId : null, containerId],
+      [
+        _uuid.v4(),
+        name,
+        widget.containerId == null ? widget.roomId : null,
+        widget.containerId,
+      ],
     );
   }
 
@@ -114,13 +201,13 @@ class ContentsScreen extends StatelessWidget {
 
     if (result == null || result.$1.isEmpty) return;
     final (name, placement) = result;
-    await db.execute(
+    await widget.db.execute(
       'INSERT INTO item (id, name, room_id, container_id, placement) VALUES (?, ?, ?, ?, ?)',
       [
         _uuid.v4(),
         name,
-        roomId,
-        containerId,
+        widget.roomId,
+        widget.containerId,
         placement.isEmpty ? null : placement,
       ],
     );
@@ -155,45 +242,59 @@ class ContentsScreen extends StatelessWidget {
     }
   }
 
-  Stream<ResultSet> get _containersQuery => containerId == null
-      ? db.watch(
+  Stream<ResultSet> get _containersQuery => widget.containerId == null
+      ? widget.db.watch(
           'SELECT id, name FROM container WHERE room_id = ? ORDER BY name',
-          parameters: [roomId],
+          parameters: [widget.roomId],
         )
-      : db.watch(
+      : widget.db.watch(
           'SELECT id, name FROM container WHERE parent_container_id = ? ORDER BY name',
-          parameters: [containerId],
+          parameters: [widget.containerId],
         );
 
-  Stream<ResultSet> get _itemsQuery => containerId == null
-      ? db.watch(
+  Stream<ResultSet> get _itemsQuery => widget.containerId == null
+      ? widget.db.watch(
           '''
           SELECT item.id, item.name, item.placement,
             (SELECT id FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_image_id
           FROM item WHERE room_id = ? AND container_id IS NULL ORDER BY name
           ''',
-          parameters: [roomId],
+          parameters: [widget.roomId],
         )
-      : db.watch(
+      : widget.db.watch(
           '''
           SELECT item.id, item.name, item.placement,
             (SELECT id FROM image WHERE item_id = item.id ORDER BY created_at ASC LIMIT 1) AS cover_image_id
           FROM item WHERE container_id = ? ORDER BY name
           ''',
-          parameters: [containerId],
+          parameters: [widget.containerId],
         );
 
   @override
   Widget build(BuildContext context) {
-    final childBreadcrumbs = [...breadcrumbs, title];
+    final childBreadcrumbs = [...widget.breadcrumbs, widget.title];
+
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: _selecting
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSelection,
+              ),
+              title: Text(
+                '${_selectedItems.length + _selectedContainers.length} valgt',
+              ),
+              actions: [
+                TextButton(onPressed: _startMove, child: const Text('Flytt')),
+              ],
+            )
+          : AppBar(title: Text(widget.title)),
       body: Column(
         children: [
-          BreadcrumbBar(path: breadcrumbs),
+          BreadcrumbBar(path: widget.breadcrumbs),
           Expanded(
             child: SyncGate(
-              db: db,
+              db: widget.db,
               builder: (context) => StreamBuilder<ResultSet>(
                 stream: _containersQuery,
                 builder: (context, containerSnapshot) {
@@ -207,12 +308,17 @@ class ContentsScreen extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
                       return _ContentsList(
-                        db: db,
-                        credentials: credentials,
-                        roomId: roomId,
+                        db: widget.db,
+                        credentials: widget.credentials,
+                        roomId: widget.roomId,
                         containers: containerSnapshot.data!,
                         items: itemSnapshot.data!,
                         childBreadcrumbs: childBreadcrumbs,
+                        selecting: _selecting,
+                        selectedItems: _selectedItems,
+                        selectedContainers: _selectedContainers,
+                        onToggleItem: _toggleItem,
+                        onToggleContainer: _toggleContainer,
                       );
                     },
                   );
@@ -222,10 +328,12 @@ class ContentsScreen extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _pickAddType(context),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _selecting
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _pickAddType(context),
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
@@ -239,6 +347,11 @@ class _ContentsList extends StatelessWidget {
   final ResultSet containers;
   final ResultSet items;
   final List<String> childBreadcrumbs;
+  final bool selecting;
+  final Map<String, String> selectedItems;
+  final Map<String, String> selectedContainers;
+  final void Function(String id, String name) onToggleItem;
+  final void Function(String id, String name) onToggleContainer;
 
   const _ContentsList({
     required this.db,
@@ -247,6 +360,11 @@ class _ContentsList extends StatelessWidget {
     required this.containers,
     required this.items,
     required this.childBreadcrumbs,
+    required this.selecting,
+    required this.selectedItems,
+    required this.selectedContainers,
+    required this.onToggleItem,
+    required this.onToggleContainer,
   });
 
   @override
@@ -262,24 +380,34 @@ class _ContentsList extends StatelessWidget {
       itemBuilder: (context, index) {
         if (index < containers.length) {
           final row = containers[index];
+          final id = row['id'] as String;
+          final name = row['name'] as String;
           return _ContainerTile(
             db: db,
             credentials: credentials,
             roomId: roomId,
-            id: row['id'] as String,
-            name: row['name'] as String,
+            id: id,
+            name: name,
             childBreadcrumbs: childBreadcrumbs,
+            selecting: selecting,
+            selected: selectedContainers.containsKey(id),
+            onToggle: () => onToggleContainer(id, name),
           );
         }
         final row = items[index - containers.length];
+        final id = row['id'] as String;
+        final name = row['name'] as String;
         return _ItemTile(
           db: db,
           credentials: credentials,
-          id: row['id'] as String,
-          name: row['name'] as String,
+          id: id,
+          name: name,
           placement: row['placement'] as String?,
           coverImageId: row['cover_image_id'] as String?,
           breadcrumbs: childBreadcrumbs,
+          selecting: selecting,
+          selected: selectedItems.containsKey(id),
+          onToggle: () => onToggleItem(id, name),
         );
       },
     );
@@ -329,6 +457,9 @@ class _ContainerTile extends StatelessWidget {
   final String id;
   final String name;
   final List<String> childBreadcrumbs;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback onToggle;
 
   const _ContainerTile({
     required this.db,
@@ -337,27 +468,33 @@ class _ContainerTile extends StatelessWidget {
     required this.id,
     required this.name,
     required this.childBreadcrumbs,
+    required this.selecting,
+    required this.selected,
+    required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const _LeadingBox(
-        child: _PlaceholderIcon(icon: Icons.inventory_2),
-      ),
+      leading: selecting
+          ? Checkbox(value: selected, onChanged: (_) => onToggle())
+          : const _LeadingBox(child: _PlaceholderIcon(icon: Icons.inventory_2)),
       title: Text(name),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ContentsScreen(
-            db: db,
-            credentials: credentials,
-            roomId: roomId,
-            containerId: id,
-            title: name,
-            breadcrumbs: childBreadcrumbs,
-          ),
-        ),
-      ),
+      onLongPress: selecting ? null : onToggle,
+      onTap: selecting
+          ? onToggle
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ContentsScreen(
+                  db: db,
+                  credentials: credentials,
+                  roomId: roomId,
+                  containerId: id,
+                  title: name,
+                  breadcrumbs: childBreadcrumbs,
+                ),
+              ),
+            ),
     );
   }
 }
@@ -370,6 +507,9 @@ class _ItemTile extends StatelessWidget {
   final String? placement;
   final String? coverImageId;
   final List<String> breadcrumbs;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback onToggle;
 
   const _ItemTile({
     required this.db,
@@ -379,48 +519,56 @@ class _ItemTile extends StatelessWidget {
     required this.placement,
     required this.coverImageId,
     required this.breadcrumbs,
+    required this.selecting,
+    required this.selected,
+    required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: _LeadingBox(
-        child: coverImageId == null
-            ? const _PlaceholderIcon(icon: Icons.category)
-            : FutureBuilder<File?>(
-                future: ImageSync.ensureLocalThumbnail(
-                  credentials,
-                  coverImageId!,
-                ),
-                builder: (context, snapshot) {
-                  final file = snapshot.data;
-                  if (file == null) {
-                    return const _PlaceholderIcon(icon: Icons.category);
-                  }
-                  return Image.file(
-                    file,
-                    fit: BoxFit.cover,
-                    // The file may be a full-res original (see
-                    // ImageSync.ensureLocalThumbnail) — decode at display
-                    // size, not full resolution.
-                    cacheWidth: 96,
-                  );
-                },
-              ),
-      ),
+      leading: selecting
+          ? Checkbox(value: selected, onChanged: (_) => onToggle())
+          : _LeadingBox(
+              child: coverImageId == null
+                  ? const _PlaceholderIcon(icon: Icons.category)
+                  : FutureBuilder<File?>(
+                      future: ImageSync.ensureLocalThumbnail(
+                        credentials,
+                        coverImageId!,
+                      ),
+                      builder: (context, snapshot) {
+                        final file = snapshot.data;
+                        if (file == null) {
+                          return const _PlaceholderIcon(icon: Icons.category);
+                        }
+                        return Image.file(
+                          file,
+                          fit: BoxFit.cover,
+                          // The file may be a full-res original (see
+                          // ImageSync.ensureLocalThumbnail) — decode at
+                          // display size, not full resolution.
+                          cacheWidth: 96,
+                        );
+                      },
+                    ),
+            ),
       title: Text(name),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ItemDetailScreen(
-            db: db,
-            credentials: credentials,
-            itemId: id,
-            itemName: name,
-            itemPlacement: placement,
-            breadcrumbs: breadcrumbs,
-          ),
-        ),
-      ),
+      onLongPress: selecting ? null : onToggle,
+      onTap: selecting
+          ? onToggle
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ItemDetailScreen(
+                  db: db,
+                  credentials: credentials,
+                  itemId: id,
+                  itemName: name,
+                  itemPlacement: placement,
+                  breadcrumbs: breadcrumbs,
+                ),
+              ),
+            ),
     );
   }
 }
