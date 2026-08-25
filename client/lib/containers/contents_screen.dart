@@ -14,10 +14,14 @@ import 'move_destination_sheet.dart';
 
 const _uuid = Uuid();
 
+/// A selected item's display data, carried alongside its id so the move
+/// destination sheet's summary can show a thumbnail, not just a name.
+typedef SelectedItem = ({String name, String? coverImageId});
+
 /// A held item/container multiselect that's being moved to a new room or
 /// container.
 class MoveSelection {
-  final Map<String, String> itemIds; // id -> name
+  final Map<String, SelectedItem> itemIds; // id -> display data
   final Map<String, String> containerIds; // id -> name
   final String originRoomId;
   final String? originContainerId;
@@ -28,9 +32,6 @@ class MoveSelection {
     required this.originRoomId,
     required this.originContainerId,
   });
-
-  String get summary =>
-      'Flytter: ${[...containerIds.values, ...itemIds.values].join(', ')}';
 }
 
 /// Folder-like browsing of a room's or a container's direct contents —
@@ -71,18 +72,18 @@ class ContentsScreen extends StatefulWidget {
 }
 
 class _ContentsScreenState extends State<ContentsScreen> {
-  final Map<String, String> _selectedItems = {};
+  final Map<String, SelectedItem> _selectedItems = {};
   final Map<String, String> _selectedContainers = {};
 
   bool get _selecting =>
       _selectedItems.isNotEmpty || _selectedContainers.isNotEmpty;
 
-  void _toggleItem(String id, String name) {
+  void _toggleItem(String id, SelectedItem item) {
     setState(() {
       if (_selectedItems.containsKey(id)) {
         _selectedItems.remove(id);
       } else {
-        _selectedItems[id] = name;
+        _selectedItems[id] = item;
       }
     });
   }
@@ -104,6 +105,22 @@ class _ContentsScreenState extends State<ContentsScreen> {
     });
   }
 
+  Future<void> _selectAll() async {
+    final containers = await _containersQuery.first;
+    final items = await _itemsQuery.first;
+    setState(() {
+      for (final row in containers) {
+        _selectedContainers[row['id'] as String] = row['name'] as String;
+      }
+      for (final row in items) {
+        _selectedItems[row['id'] as String] = (
+          name: row['name'] as String,
+          coverImageId: row['cover_image_id'] as String?,
+        );
+      }
+    });
+  }
+
   Future<void> _startMove() async {
     final selection = MoveSelection(
       itemIds: Map.of(_selectedItems),
@@ -114,7 +131,11 @@ class _ContentsScreenState extends State<ContentsScreen> {
     final moved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => MoveDestinationSheet(db: widget.db, selection: selection),
+      builder: (_) => MoveDestinationSheet(
+        db: widget.db,
+        credentials: widget.credentials,
+        selection: selection,
+      ),
     );
     if (moved == true && mounted) {
       _clearSelection();
@@ -270,70 +291,103 @@ class _ContentsScreenState extends State<ContentsScreen> {
           parameters: [widget.containerId],
         );
 
+  /// Subscribes to this screen's containers and items together, rebuilding
+  /// [builder] whenever either emits — shared by the body's list and the
+  /// "Velg alle" button's enabled state, so both agree on what "everything"
+  /// currently means.
+  Widget _watchContents(
+    Widget Function(BuildContext context, ResultSet containers, ResultSet items)
+    builder,
+  ) {
+    return StreamBuilder<ResultSet>(
+      stream: _containersQuery,
+      builder: (context, containerSnapshot) {
+        final containers = containerSnapshot.data;
+        if (containers == null) return const SizedBox.shrink();
+        return StreamBuilder<ResultSet>(
+          stream: _itemsQuery,
+          builder: (context, itemSnapshot) {
+            final items = itemSnapshot.data;
+            if (items == null) return const SizedBox.shrink();
+            return builder(context, containers, items);
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final childBreadcrumbs = [...widget.breadcrumbs, widget.title];
 
-    return Scaffold(
-      appBar: _selecting
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: _clearSelection,
-              ),
-              title: Text(
-                '${_selectedItems.length + _selectedContainers.length} valgt',
-              ),
-              actions: [
-                TextButton(onPressed: _startMove, child: const Text('Flytt')),
-              ],
-            )
-          : AppBar(title: Text(widget.title)),
-      body: Column(
-        children: [
-          BreadcrumbBar(path: widget.breadcrumbs),
-          Expanded(
-            child: SyncGate(
-              db: widget.db,
-              builder: (context) => StreamBuilder<ResultSet>(
-                stream: _containersQuery,
-                builder: (context, containerSnapshot) {
-                  if (!containerSnapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  return StreamBuilder<ResultSet>(
-                    stream: _itemsQuery,
-                    builder: (context, itemSnapshot) {
-                      if (!itemSnapshot.hasData) {
-                        return const SizedBox.shrink();
-                      }
-                      return _ContentsList(
-                        db: widget.db,
-                        credentials: widget.credentials,
-                        roomId: widget.roomId,
-                        containers: containerSnapshot.data!,
-                        items: itemSnapshot.data!,
-                        childBreadcrumbs: childBreadcrumbs,
-                        selecting: _selecting,
-                        selectedItems: _selectedItems,
-                        selectedContainers: _selectedContainers,
-                        onToggleItem: _toggleItem,
-                        onToggleContainer: _toggleContainer,
-                      );
-                    },
-                  );
-                },
+    return PopScope(
+      canPop: !_selecting,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _clearSelection();
+      },
+      child: Scaffold(
+        appBar: _selecting
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _clearSelection,
+                ),
+                title: Text(
+                  '${_selectedItems.length + _selectedContainers.length} valgt',
+                ),
+                actions: [
+                  _watchContents((context, containers, items) {
+                    final allSelected =
+                        containers.every(
+                          (r) => _selectedContainers.containsKey(
+                            r['id'] as String,
+                          ),
+                        ) &&
+                        items.every(
+                          (r) => _selectedItems.containsKey(r['id'] as String),
+                        ) &&
+                        (containers.isNotEmpty || items.isNotEmpty);
+                    return TextButton(
+                      onPressed: allSelected ? null : _selectAll,
+                      child: const Text('Velg alle'),
+                    );
+                  }),
+                  TextButton(onPressed: _startMove, child: const Text('Flytt')),
+                ],
+              )
+            : AppBar(title: Text(widget.title)),
+        body: Column(
+          children: [
+            BreadcrumbBar(path: widget.breadcrumbs),
+            Expanded(
+              child: SyncGate(
+                db: widget.db,
+                builder: (context) => _watchContents(
+                  (context, containers, items) => _ContentsList(
+                    db: widget.db,
+                    credentials: widget.credentials,
+                    roomId: widget.roomId,
+                    containers: containers,
+                    items: items,
+                    childBreadcrumbs: childBreadcrumbs,
+                    selecting: _selecting,
+                    selectedItems: _selectedItems,
+                    selectedContainers: _selectedContainers,
+                    onToggleItem: _toggleItem,
+                    onToggleContainer: _toggleContainer,
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+        floatingActionButton: _selecting
+            ? null
+            : FloatingActionButton(
+                onPressed: () => _pickAddType(context),
+                child: const Icon(Icons.add),
+              ),
       ),
-      floatingActionButton: _selecting
-          ? null
-          : FloatingActionButton(
-              onPressed: () => _pickAddType(context),
-              child: const Icon(Icons.add),
-            ),
     );
   }
 }
@@ -348,9 +402,9 @@ class _ContentsList extends StatelessWidget {
   final ResultSet items;
   final List<String> childBreadcrumbs;
   final bool selecting;
-  final Map<String, String> selectedItems;
+  final Map<String, SelectedItem> selectedItems;
   final Map<String, String> selectedContainers;
-  final void Function(String id, String name) onToggleItem;
+  final void Function(String id, SelectedItem item) onToggleItem;
   final void Function(String id, String name) onToggleContainer;
 
   const _ContentsList({
@@ -397,17 +451,19 @@ class _ContentsList extends StatelessWidget {
         final row = items[index - containers.length];
         final id = row['id'] as String;
         final name = row['name'] as String;
+        final coverImageId = row['cover_image_id'] as String?;
         return _ItemTile(
           db: db,
           credentials: credentials,
           id: id,
           name: name,
           placement: row['placement'] as String?,
-          coverImageId: row['cover_image_id'] as String?,
+          coverImageId: coverImageId,
           breadcrumbs: childBreadcrumbs,
           selecting: selecting,
           selected: selectedItems.containsKey(id),
-          onToggle: () => onToggleItem(id, name),
+          onToggle: () =>
+              onToggleItem(id, (name: name, coverImageId: coverImageId)),
         );
       },
     );
@@ -417,35 +473,83 @@ class _ContentsList extends StatelessWidget {
 /// Fixed-size (matches [_ItemTile]'s thumbnail) box for a list tile's
 /// leading visual, so containers and items line up regardless of whether
 /// an item has a cover image.
-class _LeadingBox extends StatelessWidget {
+class LeadingBox extends StatelessWidget {
   final Widget child;
+  final double size;
 
-  const _LeadingBox({required this.child});
+  const LeadingBox({super.key, required this.child, this.size = 48});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       child: ClipRRect(borderRadius: BorderRadius.circular(4), child: child),
     );
   }
 }
 
-/// Placeholder fill for [_LeadingBox] when there's no real image to show —
+/// Placeholder fill for [LeadingBox] when there's no real image to show —
 /// a container (which never has one) or an item that hasn't got a cover
 /// image yet.
-class _PlaceholderIcon extends StatelessWidget {
+class PlaceholderIcon extends StatelessWidget {
   final IconData icon;
+  final double size;
 
-  const _PlaceholderIcon({required this.icon});
+  const PlaceholderIcon({super.key, required this.icon, this.size = 24});
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       color: colors.surfaceContainerHighest,
-      child: Icon(icon, color: colors.onSurfaceVariant),
+      child: Icon(icon, size: size, color: colors.onSurfaceVariant),
+    );
+  }
+}
+
+/// An item's cover-image thumbnail (falling back to [PlaceholderIcon] while
+/// it loads or if there isn't one), wrapped in a [LeadingBox] of [size].
+/// Shared by [_ItemTile] and the move-destination sheet's selection
+/// summary — same thumbnail, different sizes.
+class ItemThumbnail extends StatelessWidget {
+  final DeviceCredentials credentials;
+  final String? coverImageId;
+  final double size;
+
+  const ItemThumbnail({
+    super.key,
+    required this.credentials,
+    required this.coverImageId,
+    this.size = 48,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LeadingBox(
+      size: size,
+      child: coverImageId == null
+          ? PlaceholderIcon(icon: Icons.category, size: size / 2)
+          : FutureBuilder<File?>(
+              future: ImageSync.ensureLocalThumbnail(
+                credentials,
+                coverImageId!,
+              ),
+              builder: (context, snapshot) {
+                final file = snapshot.data;
+                if (file == null) {
+                  return PlaceholderIcon(icon: Icons.category, size: size / 2);
+                }
+                return Image.file(
+                  file,
+                  fit: BoxFit.cover,
+                  // The file may be a full-res original (see
+                  // ImageSync.ensureLocalThumbnail) — decode at display
+                  // size, not full resolution.
+                  cacheWidth: (size * 2).round(),
+                );
+              },
+            ),
     );
   }
 }
@@ -476,10 +580,13 @@ class _ContainerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: selecting
-          ? Checkbox(value: selected, onChanged: (_) => onToggle())
-          : const _LeadingBox(child: _PlaceholderIcon(icon: Icons.inventory_2)),
+      leading: const LeadingBox(
+        child: PlaceholderIcon(icon: Icons.inventory_2),
+      ),
       title: Text(name),
+      trailing: selecting
+          ? Checkbox(value: selected, onChanged: (_) => onToggle())
+          : null,
       onLongPress: selecting ? null : onToggle,
       onTap: selecting
           ? onToggle
@@ -527,33 +634,14 @@ class _ItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: selecting
-          ? Checkbox(value: selected, onChanged: (_) => onToggle())
-          : _LeadingBox(
-              child: coverImageId == null
-                  ? const _PlaceholderIcon(icon: Icons.category)
-                  : FutureBuilder<File?>(
-                      future: ImageSync.ensureLocalThumbnail(
-                        credentials,
-                        coverImageId!,
-                      ),
-                      builder: (context, snapshot) {
-                        final file = snapshot.data;
-                        if (file == null) {
-                          return const _PlaceholderIcon(icon: Icons.category);
-                        }
-                        return Image.file(
-                          file,
-                          fit: BoxFit.cover,
-                          // The file may be a full-res original (see
-                          // ImageSync.ensureLocalThumbnail) — decode at
-                          // display size, not full resolution.
-                          cacheWidth: 96,
-                        );
-                      },
-                    ),
-            ),
+      leading: ItemThumbnail(
+        credentials: credentials,
+        coverImageId: coverImageId,
+      ),
       title: Text(name),
+      trailing: selecting
+          ? Checkbox(value: selected, onChanged: (_) => onToggle())
+          : null,
       onLongPress: selecting ? null : onToggle,
       onTap: selecting
           ? onToggle

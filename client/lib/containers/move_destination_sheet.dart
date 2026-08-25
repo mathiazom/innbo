@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart' hide Column;
 import 'package:sqlite3/common.dart' show ResultSet;
 
-import 'contents_screen.dart' show MoveSelection;
+import '../device_credentials.dart';
+import 'contents_screen.dart'
+    show
+        ItemThumbnail,
+        LeadingBox,
+        MoveSelection,
+        PlaceholderIcon,
+        SelectedItem;
 
 /// A destination is a room (`containerId == null`) or a container nested
 /// somewhere under one.
@@ -38,11 +45,13 @@ Future<Set<String>> _ancestorContainerIds(
 /// valid destination.
 class MoveDestinationSheet extends StatefulWidget {
   final PowerSyncDatabase db;
+  final DeviceCredentials credentials;
   final MoveSelection selection;
 
   const MoveDestinationSheet({
     super.key,
     required this.db,
+    required this.credentials,
     required this.selection,
   });
 
@@ -116,9 +125,9 @@ class _MoveDestinationSheetState extends State<MoveDestinationSheet> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              widget.selection.summary,
-              style: Theme.of(context).textTheme.titleMedium,
+            child: _SelectionSummary(
+              selection: widget.selection,
+              credentials: widget.credentials,
             ),
           ),
           const Divider(height: 1),
@@ -183,6 +192,96 @@ class _MoveDestinationSheetState extends State<MoveDestinationSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+const _namesThreshold = 3;
+const _imageSlotCap = 8;
+
+/// "Flytter: …" header — shows each selected entry as a small icon (a
+/// container's generic folder icon, or an item's cover-image thumbnail)
+/// next to its name while the selection is small; once it's large enough
+/// that a name list would be hard to scan, switches to icons only, capped
+/// at [_imageSlotCap] with a "+N" for the rest. Containers always sort
+/// first, matching the containers-before-items convention used everywhere
+/// else in this app.
+class _SelectionSummary extends StatelessWidget {
+  final MoveSelection selection;
+  final DeviceCredentials credentials;
+
+  const _SelectionSummary({required this.selection, required this.credentials});
+
+  Widget _containerIcon() => const LeadingBox(
+    size: 24,
+    child: PlaceholderIcon(icon: Icons.inventory_2, size: 12),
+  );
+
+  Widget _itemIcon(SelectedItem item) => ItemThumbnail(
+    credentials: credentials,
+    coverImageId: item.coverImageId,
+    size: 24,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final containerNames = selection.containerIds.values.toList();
+    final items = selection.itemIds.values.toList();
+    final total = containerNames.length + items.length;
+
+    if (total <= _namesThreshold) {
+      return Wrap(
+        spacing: 12,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Text('Flytter:'),
+          for (final name in containerNames)
+            _IconLabel(icon: _containerIcon(), name: name),
+          for (final item in items)
+            _IconLabel(icon: _itemIcon(item), name: item.name),
+        ],
+      );
+    }
+
+    final icons = [
+      for (final _ in containerNames) _containerIcon(),
+      for (final item in items) _itemIcon(item),
+    ];
+    // A lone "+1" would take up as much room as just showing that one
+    // extra icon, so never leave exactly one hidden — one fewer icon
+    // shows instead, bumping the overflow to a worthwhile "+2". The cap
+    // itself never grows past _imageSlotCap.
+    final visibleCount = total <= _imageSlotCap
+        ? total
+        : (total - _imageSlotCap == 1 ? _imageSlotCap - 1 : _imageSlotCap);
+    final visible = icons.take(visibleCount).toList();
+    final overflow = total - visible.length;
+    return Row(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(right: 8),
+          child: Text('Flytter:'),
+        ),
+        for (final icon in visible)
+          Padding(padding: const EdgeInsets.only(right: 4), child: icon),
+        if (overflow > 0) Text('+$overflow'),
+      ],
+    );
+  }
+}
+
+class _IconLabel extends StatelessWidget {
+  final Widget icon;
+  final String name;
+
+  const _IconLabel({required this.icon, required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [icon, const SizedBox(width: 4), Text(name)],
     );
   }
 }
