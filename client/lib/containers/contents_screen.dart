@@ -347,9 +347,11 @@ class _ContentsScreenState extends State<ContentsScreen> {
                           (r) => _selectedItems.containsKey(r['id'] as String),
                         ) &&
                         (containers.isNotEmpty || items.isNotEmpty);
-                    return TextButton(
+                    return IconButton(
+                      icon: const Icon(Icons.select_all),
+                      tooltip: 'Velg alle',
+                      color: Theme.of(context).colorScheme.primary,
                       onPressed: allSelected ? null : _selectAll,
-                      child: const Text('Velg alle'),
                     );
                   }),
                   TextButton(onPressed: _startMove, child: const Text('Flytt')),
