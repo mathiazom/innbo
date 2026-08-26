@@ -34,9 +34,7 @@ class ItemDetailScreen extends StatelessWidget {
     required this.breadcrumbs,
   });
 
-  Future<void> _addImage(BuildContext context, ImageSource source) async {
-    final picked = await _picker.pickImage(source: source);
-    if (picked == null) return;
+  Future<void> _addPickedImage(BuildContext context, XFile picked) async {
     final id = _uuid.v4();
     await ImageStore.saveFull(id, File(picked.path));
     await db.execute(
@@ -60,9 +58,24 @@ class ItemDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _addFromCamera(BuildContext context) async {
+    final picked = await _picker.pickImage(source: ImageSource.camera);
+    if (picked == null) return;
+    // ignore: use_build_context_synchronously
+    await _addPickedImage(context, picked);
+  }
+
+  Future<void> _addFromLibrary(BuildContext context) async {
+    final picked = await _picker.pickMultiImage();
+    for (final file in picked) {
+      // ignore: use_build_context_synchronously
+      await _addPickedImage(context, file);
+    }
+  }
+
   Future<void> _pickAndAddImage(BuildContext context) async {
     if (!Platform.isAndroid) {
-      await _addImage(context, ImageSource.gallery);
+      await _addFromLibrary(context);
       return;
     }
     final source = await showModalBottomSheet<ImageSource>(
@@ -86,7 +99,11 @@ class ItemDetailScreen extends StatelessWidget {
       ),
     );
     if (source == null || !context.mounted) return;
-    await _addImage(context, source);
+    if (source == ImageSource.camera) {
+      await _addFromCamera(context);
+    } else {
+      await _addFromLibrary(context);
+    }
   }
 
   Future<void> _viewImage(
