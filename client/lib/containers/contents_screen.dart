@@ -6,8 +6,10 @@ import 'package:sqlite3/common.dart' show ResultSet;
 import 'package:uuid/uuid.dart';
 
 import '../device_credentials.dart';
+import '../items/batch_capture_screen.dart';
 import '../items/image_sync.dart';
 import '../items/item_detail_screen.dart';
+import '../items/item_name_text.dart';
 import '../powersync/synced_list_view.dart';
 import 'breadcrumb_bar.dart';
 import 'move_destination_sheet.dart';
@@ -16,7 +18,7 @@ const _uuid = Uuid();
 
 /// A selected item's display data, carried alongside its id so the move
 /// destination sheet's summary can show a thumbnail, not just a name.
-typedef SelectedItem = ({String name, String? coverImageId});
+typedef SelectedItem = ({String? name, String? coverImageId});
 
 /// A held item/container multiselect that's being moved to a new room or
 /// container.
@@ -114,7 +116,7 @@ class _ContentsScreenState extends State<ContentsScreen> {
       }
       for (final row in items) {
         _selectedItems[row['id'] as String] = (
-          name: row['name'] as String,
+          name: row['name'] as String?,
           coverImageId: row['cover_image_id'] as String?,
         );
       }
@@ -181,56 +183,17 @@ class _ContentsScreenState extends State<ContentsScreen> {
     );
   }
 
-  Future<void> _addItem(BuildContext context) async {
-    final nameController = TextEditingController();
-    final placementController = TextEditingController();
-    final result = await showDialog<(String, String)>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ny gjenstand'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Navn'),
-            ),
-            TextField(
-              controller: placementController,
-              decoration: const InputDecoration(
-                labelText: 'Plassering (valgfritt)',
-              ),
-            ),
-          ],
+  void _addItem(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BatchCaptureScreen(
+          db: widget.db,
+          credentials: widget.credentials,
+          roomId: widget.roomId,
+          containerId: widget.containerId,
+          breadcrumbs: [...widget.breadcrumbs, widget.title],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Avbryt'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop((
-              nameController.text.trim(),
-              placementController.text.trim(),
-            )),
-            child: const Text('Legg til'),
-          ),
-        ],
       ),
-    );
-
-    if (result == null || result.$1.isEmpty) return;
-    final (name, placement) = result;
-    await widget.db.execute(
-      'INSERT INTO item (id, name, room_id, container_id, placement) VALUES (?, ?, ?, ?, ?)',
-      [
-        _uuid.v4(),
-        name,
-        widget.roomId,
-        widget.containerId,
-        placement.isEmpty ? null : placement,
-      ],
     );
   }
 
@@ -259,7 +222,7 @@ class _ContentsScreenState extends State<ContentsScreen> {
     if (choice == 'container') {
       await _addContainer(context);
     } else {
-      await _addItem(context);
+      _addItem(context);
     }
   }
 
@@ -452,7 +415,7 @@ class _ContentsList extends StatelessWidget {
         }
         final row = items[index - containers.length];
         final id = row['id'] as String;
-        final name = row['name'] as String;
+        final name = row['name'] as String?;
         final coverImageId = row['cover_image_id'] as String?;
         return _ItemTile(
           db: db,
@@ -612,7 +575,7 @@ class _ItemTile extends StatelessWidget {
   final PowerSyncDatabase db;
   final DeviceCredentials credentials;
   final String id;
-  final String name;
+  final String? name;
   final String? placement;
   final String? coverImageId;
   final List<String> breadcrumbs;
@@ -640,7 +603,7 @@ class _ItemTile extends StatelessWidget {
         credentials: credentials,
         coverImageId: coverImageId,
       ),
-      title: Text(name),
+      title: ItemNameText(name: name),
       trailing: selecting
           ? Checkbox(value: selected, onChanged: (_) => onToggle())
           : null,

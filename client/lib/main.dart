@@ -18,8 +18,18 @@ import 'sync/unsynced_changes_guard.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const InnboApp());
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    // Caught framework errors (e.g. during build) still show today's
+    // dev-mode red screen for that widget, but no longer propagate
+    // past this handler — an uncaught one can otherwise force the
+    // whole app to rebuild from MaterialApp.home, losing navigation.
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('FlutterError.onError: ${details.exception}');
+    };
+    runApp(const InnboApp());
+  }, (error, stack) => debugPrint('runZonedGuarded: $error\n$stack'));
 }
 
 class InnboApp extends StatefulWidget {

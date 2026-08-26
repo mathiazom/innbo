@@ -3,6 +3,7 @@ import 'package:powersync/powersync.dart' hide Column;
 import 'package:sqlite3/common.dart' show ResultSet;
 
 import '../device_credentials.dart';
+import '../items/item_name_text.dart';
 import 'contents_screen.dart'
     show
         ItemThumbnail,
@@ -273,7 +274,7 @@ class _SelectionSummary extends StatelessWidget {
 
 class _IconLabel extends StatelessWidget {
   final Widget icon;
-  final String name;
+  final String? name;
 
   const _IconLabel({required this.icon, required this.name});
 
@@ -281,7 +282,11 @@ class _IconLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [icon, const SizedBox(width: 4), Text(name)],
+      children: [
+        icon,
+        const SizedBox(width: 4),
+        ItemNameText(name: name),
+      ],
     );
   }
 }
