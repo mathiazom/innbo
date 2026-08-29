@@ -74,6 +74,7 @@ class ContentsScreen extends StatefulWidget {
 }
 
 class _ContentsScreenState extends State<ContentsScreen> {
+  late String _title = widget.title;
   final Map<String, SelectedItem> _selectedItems = {};
   final Map<String, String> _selectedContainers = {};
 
@@ -183,6 +184,45 @@ class _ContentsScreenState extends State<ContentsScreen> {
     );
   }
 
+  Future<void> _rename(BuildContext context) async {
+    final controller = TextEditingController(text: _title);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          widget.containerId == null
+              ? 'Endre navn på rom'
+              : 'Endre navn på beholder',
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(labelText: 'Navn'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Avbryt'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Lagre'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty) return;
+    final table = widget.containerId == null ? 'room' : 'container';
+    final id = widget.containerId ?? widget.roomId;
+    await widget.db.execute('UPDATE $table SET name = ? WHERE id = ?', [
+      name,
+      id,
+    ]);
+    setState(() => _title = name);
+  }
+
   void _addItem(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -281,7 +321,7 @@ class _ContentsScreenState extends State<ContentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final childBreadcrumbs = [...widget.breadcrumbs, widget.title];
+    final childBreadcrumbs = [...widget.breadcrumbs, _title];
 
     return PopScope(
       canPop: !_selecting,
@@ -320,7 +360,15 @@ class _ContentsScreenState extends State<ContentsScreen> {
                   TextButton(onPressed: _startMove, child: const Text('Flytt')),
                 ],
               )
-            : AppBar(title: Text(widget.title)),
+            : AppBar(
+                title: Text(_title),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () => _rename(context),
+                  ),
+                ],
+              ),
         body: Column(
           children: [
             BreadcrumbBar(path: widget.breadcrumbs),

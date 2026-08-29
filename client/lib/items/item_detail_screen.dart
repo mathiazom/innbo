@@ -50,6 +50,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             TextField(
               controller: nameController,
               autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'Navn'),
             ),
             TextField(
