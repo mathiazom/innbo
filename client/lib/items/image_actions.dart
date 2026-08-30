@@ -25,23 +25,26 @@ void _showErrorSnackBar(BuildContext context, String from, Object e) {
   ).showSnackBar(const SnackBar(content: Text('Noe gikk galt med bildet.')));
 }
 
-/// Saves a picked file as a new image row on [itemId]: copies it into local
-/// storage, inserts the `image` row, then tries an immediate upload —
+/// Saves a picked file as a new image row owned by [ownerId] via
+/// [ownerColumn] (`item_id`, `container_id`, or `room_id` — always a
+/// hardcoded literal from the call site, never user input): copies it into
+/// local storage, inserts the `image` row, then tries an immediate upload —
 /// falling back to [UploadQueue]'s durable retry (with a snackbar) if that
 /// fails.
 Future<void> addPickedImage(
   BuildContext context,
   PowerSyncDatabase db,
   DeviceCredentials credentials,
-  String itemId,
+  String ownerColumn,
+  String ownerId,
   XFile picked,
 ) async {
   try {
     final id = _uuid.v4();
     await ImageStore.saveFull(id, File(picked.path));
     await db.execute(
-      'INSERT INTO image (id, item_id, created_at) VALUES (?, ?, ?)',
-      [id, itemId, DateTime.now().millisecondsSinceEpoch],
+      'INSERT INTO image (id, $ownerColumn, created_at) VALUES (?, ?, ?)',
+      [id, ownerId, DateTime.now().millisecondsSinceEpoch],
     );
     final uploaded = await ImageSync.uploadFull(credentials, id);
     if (!uploaded) {
@@ -60,51 +63,74 @@ Future<void> addPickedImage(
     }
   } catch (e) {
     if (context.mounted) {
-      _showErrorSnackBar(context, 'addPickedImage($itemId)', e);
+      _showErrorSnackBar(context, 'addPickedImage($ownerId)', e);
     } else {
-      debugPrint('addPickedImage($itemId): $e');
+      debugPrint('addPickedImage($ownerId): $e');
     }
   }
 }
 
 /// Opens the device camera app directly (no camera/library choice) and
-/// adds the result to the item [ensureItemId] resolves to. [ensureItemId]
+/// adds the result to the owner [ensureOwnerId] resolves to. [ensureOwnerId]
 /// is only called once a photo is actually taken, so cancelling never
-/// creates an item.
+/// creates anything.
 Future<void> addFromCamera(
   BuildContext context,
   PowerSyncDatabase db,
   DeviceCredentials credentials,
-  Future<String> Function() ensureItemId,
+  String ownerColumn,
+  Future<String> Function() ensureOwnerId,
 ) async {
   try {
     final picked = await _picker.pickImage(source: ImageSource.camera);
     if (picked == null) return;
-    final itemId = await ensureItemId();
+    final ownerId = await ensureOwnerId();
     if (!context.mounted) return;
-    await addPickedImage(context, db, credentials, itemId, picked);
+    await addPickedImage(
+      context,
+      db,
+      credentials,
+      ownerColumn,
+      ownerId,
+      picked,
+    );
   } catch (e) {
     if (context.mounted) _showErrorSnackBar(context, 'addFromCamera', e);
   }
 }
 
-/// Opens the gallery multi-picker directly (no camera/library choice) and
-/// adds whatever's picked to the item [ensureItemId] resolves to.
-/// [ensureItemId] is only called once at least one file has actually been
-/// picked, so cancelling the picker never creates an item.
+/// Opens the gallery picker directly (no camera/library choice) and adds
+/// whatever's picked to the owner [ensureOwnerId] resolves to. Picks
+/// multiple files unless [multiple] is false (a single-image owner like a
+/// container or room's cover image). [ensureOwnerId] is only called once
+/// at least one file has actually been picked, so cancelling the picker
+/// never creates anything.
 Future<void> addFromLibrary(
   BuildContext context,
   PowerSyncDatabase db,
   DeviceCredentials credentials,
-  Future<String> Function() ensureItemId,
-) async {
+  String ownerColumn,
+  Future<String> Function() ensureOwnerId, {
+  bool multiple = true,
+}) async {
   try {
-    final picked = await _picker.pickMultiImage();
+    final picked = multiple
+        ? await _picker.pickMultiImage()
+        : await _picker
+              .pickImage(source: ImageSource.gallery)
+              .then((file) => file == null ? <XFile>[] : [file]);
     if (picked.isEmpty) return;
-    final itemId = await ensureItemId();
+    final ownerId = await ensureOwnerId();
     for (final file in picked) {
       if (!context.mounted) return;
-      await addPickedImage(context, db, credentials, itemId, file);
+      await addPickedImage(
+        context,
+        db,
+        credentials,
+        ownerColumn,
+        ownerId,
+        file,
+      );
     }
   } catch (e) {
     if (context.mounted) _showErrorSnackBar(context, 'addFromLibrary', e);
@@ -113,17 +139,27 @@ Future<void> addFromLibrary(
 
 /// Opens the camera/library source picker (camera vs. gallery on Android;
 /// straight to the gallery picker elsewhere) and adds whatever's picked to
-/// the item [ensureItemId] resolves to. [ensureItemId] is only called once
-/// at least one file has actually been picked, so cancelling the picker
-/// never creates an item.
+/// the owner [ensureOwnerId] resolves to, limited to a single image when
+/// [multiple] is false. [ensureOwnerId] is only called once at least one
+/// file has actually been picked, so cancelling the picker never creates
+/// anything.
 Future<void> pickAndAddImage(
   BuildContext context,
   PowerSyncDatabase db,
   DeviceCredentials credentials,
-  Future<String> Function() ensureItemId,
-) async {
+  String ownerColumn,
+  Future<String> Function() ensureOwnerId, {
+  bool multiple = true,
+}) async {
   if (!Platform.isAndroid) {
-    await addFromLibrary(context, db, credentials, ensureItemId);
+    await addFromLibrary(
+      context,
+      db,
+      credentials,
+      ownerColumn,
+      ensureOwnerId,
+      multiple: multiple,
+    );
     return;
   }
   final source = await showModalBottomSheet<ImageSource>(
@@ -148,8 +184,15 @@ Future<void> pickAndAddImage(
   );
   if (source == null || !context.mounted) return;
   if (source == ImageSource.camera) {
-    await addFromCamera(context, db, credentials, ensureItemId);
+    await addFromCamera(context, db, credentials, ownerColumn, ensureOwnerId);
   } else {
-    await addFromLibrary(context, db, credentials, ensureItemId);
+    await addFromLibrary(
+      context,
+      db,
+      credentials,
+      ownerColumn,
+      ensureOwnerId,
+      multiple: multiple,
+    );
   }
 }

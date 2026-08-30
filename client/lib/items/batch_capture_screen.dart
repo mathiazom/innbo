@@ -67,7 +67,7 @@ class _BatchCaptureScreenState extends State<BatchCaptureScreen> {
       return;
     }
     _autoLaunchedThisSlot = true;
-    addFromCamera(context, db, credentials, _ensureItemId);
+    addFromCamera(context, db, credentials, 'item_id', _ensureItemId);
   }
 
   Future<String> _ensureItemId() async {
@@ -241,22 +241,37 @@ class _BatchCaptureScreenState extends State<BatchCaptureScreen> {
           if (Platform.isAndroid) ...[
             FloatingActionButton(
               heroTag: 'batch-capture-camera',
-              onPressed: () =>
-                  addFromCamera(context, db, credentials, _ensureItemId),
+              onPressed: () => addFromCamera(
+                context,
+                db,
+                credentials,
+                'item_id',
+                _ensureItemId,
+              ),
               child: const Icon(Icons.add_a_photo),
             ),
             const SizedBox(width: 16),
             FloatingActionButton(
               heroTag: 'batch-capture-library',
-              onPressed: () =>
-                  addFromLibrary(context, db, credentials, _ensureItemId),
+              onPressed: () => addFromLibrary(
+                context,
+                db,
+                credentials,
+                'item_id',
+                _ensureItemId,
+              ),
               child: const Icon(Icons.photo_library),
             ),
           ] else
             FloatingActionButton(
               heroTag: 'batch-capture-photo',
-              onPressed: () =>
-                  pickAndAddImage(context, db, credentials, _ensureItemId),
+              onPressed: () => pickAndAddImage(
+                context,
+                db,
+                credentials,
+                'item_id',
+                _ensureItemId,
+              ),
               child: const Icon(Icons.add_a_photo),
             ),
         ],

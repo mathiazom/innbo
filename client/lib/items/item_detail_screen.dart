@@ -134,8 +134,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            pickAndAddImage(context, db, credentials, () async => itemId),
+        onPressed: () => pickAndAddImage(
+          context,
+          db,
+          credentials,
+          'item_id',
+          () async => itemId,
+        ),
         child: const Icon(Icons.add_a_photo),
       ),
     );

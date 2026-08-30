@@ -7,6 +7,12 @@ import '../containers/contents_screen.dart';
 import '../device_credentials.dart';
 import '../powersync/synced_list_view.dart';
 
+const _roomsQuery = '''
+  SELECT room.id, room.name,
+    (SELECT id FROM image WHERE room_id = room.id ORDER BY created_at DESC LIMIT 1) AS cover_image_id
+  FROM room ORDER BY name
+''';
+
 const _uuid = Uuid();
 
 class RoomListScreen extends StatelessWidget {
@@ -61,7 +67,7 @@ class RoomListScreen extends StatelessWidget {
       ),
       body: SyncedListView(
         db: db,
-        query: db.watch('SELECT id, name FROM room ORDER BY name'),
+        query: db.watch(_roomsQuery),
         emptyText: 'Ingen rom ennå.',
         itemBuilder: (context, rows) => ListView.builder(
           itemCount: rows.length,
@@ -70,6 +76,11 @@ class RoomListScreen extends StatelessWidget {
             final id = row['id'] as String;
             final name = row['name'] as String;
             return ListTile(
+              leading: ItemThumbnail(
+                credentials: credentials,
+                coverImageId: row['cover_image_id'] as String?,
+                placeholderIcon: Icons.meeting_room,
+              ),
               title: Text(name),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(

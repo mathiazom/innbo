@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../device_credentials.dart';
 import '../items/batch_capture_screen.dart';
+import '../items/image_actions.dart';
 import '../items/image_sync.dart';
 import '../items/item_detail_screen.dart';
 import '../items/item_name_text.dart';
@@ -223,6 +224,28 @@ class _ContentsScreenState extends State<ContentsScreen> {
     setState(() => _title = name);
   }
 
+  String get _coverOwnerColumn =>
+      widget.containerId == null ? 'room_id' : 'container_id';
+  String get _coverOwnerId => widget.containerId ?? widget.roomId;
+
+  Stream<bool> get _hasCoverImage => widget.db
+      .watch(
+        'SELECT 1 FROM image WHERE $_coverOwnerColumn = ? LIMIT 1',
+        parameters: [_coverOwnerId],
+      )
+      .map((rows) => rows.isNotEmpty);
+
+  Future<void> _pickCoverImage(BuildContext context) async {
+    await pickAndAddImage(
+      context,
+      widget.db,
+      widget.credentials,
+      _coverOwnerColumn,
+      () async => _coverOwnerId,
+      multiple: false,
+    );
+  }
+
   void _addItem(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -268,11 +291,19 @@ class _ContentsScreenState extends State<ContentsScreen> {
 
   Stream<ResultSet> get _containersQuery => widget.containerId == null
       ? widget.db.watch(
-          'SELECT id, name FROM container WHERE room_id = ? ORDER BY name',
+          '''
+          SELECT container.id, container.name,
+            (SELECT id FROM image WHERE container_id = container.id ORDER BY created_at DESC LIMIT 1) AS cover_image_id
+          FROM container WHERE room_id = ? ORDER BY name
+          ''',
           parameters: [widget.roomId],
         )
       : widget.db.watch(
-          'SELECT id, name FROM container WHERE parent_container_id = ? ORDER BY name',
+          '''
+          SELECT container.id, container.name,
+            (SELECT id FROM image WHERE container_id = container.id ORDER BY created_at DESC LIMIT 1) AS cover_image_id
+          FROM container WHERE parent_container_id = ? ORDER BY name
+          ''',
           parameters: [widget.containerId],
         );
 
@@ -363,9 +394,32 @@ class _ContentsScreenState extends State<ContentsScreen> {
             : AppBar(
                 title: Text(_title),
                 actions: [
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _rename(context),
+                  StreamBuilder<bool>(
+                    stream: _hasCoverImage,
+                    builder: (context, snapshot) {
+                      final hasImage = snapshot.data ?? false;
+                      return PopupMenuButton<String>(
+                        onSelected: (choice) {
+                          if (choice == 'rename') {
+                            _rename(context);
+                          } else {
+                            _pickCoverImage(context);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'rename',
+                            child: Text('Endre navn'),
+                          ),
+                          PopupMenuItem(
+                            value: 'image',
+                            child: Text(
+                              hasImage ? 'Bytt bilde' : 'Legg til bilde',
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -455,6 +509,7 @@ class _ContentsList extends StatelessWidget {
             roomId: roomId,
             id: id,
             name: name,
+            coverImageId: row['cover_image_id'] as String?,
             childBreadcrumbs: childBreadcrumbs,
             selecting: selecting,
             selected: selectedContainers.containsKey(id),
@@ -529,12 +584,14 @@ class ItemThumbnail extends StatelessWidget {
   final DeviceCredentials credentials;
   final String? coverImageId;
   final double size;
+  final IconData placeholderIcon;
 
   const ItemThumbnail({
     super.key,
     required this.credentials,
     required this.coverImageId,
     this.size = 48,
+    this.placeholderIcon = Icons.category,
   });
 
   @override
@@ -542,7 +599,7 @@ class ItemThumbnail extends StatelessWidget {
     return LeadingBox(
       size: size,
       child: coverImageId == null
-          ? PlaceholderIcon(icon: Icons.category, size: size / 2)
+          ? PlaceholderIcon(icon: placeholderIcon, size: size / 2)
           : FutureBuilder<File?>(
               future: ImageSync.ensureLocalThumbnail(
                 credentials,
@@ -551,7 +608,7 @@ class ItemThumbnail extends StatelessWidget {
               builder: (context, snapshot) {
                 final file = snapshot.data;
                 if (file == null) {
-                  return PlaceholderIcon(icon: Icons.category, size: size / 2);
+                  return PlaceholderIcon(icon: placeholderIcon, size: size / 2);
                 }
                 return Image.file(
                   file,
@@ -573,6 +630,7 @@ class _ContainerTile extends StatelessWidget {
   final String roomId;
   final String id;
   final String name;
+  final String? coverImageId;
   final List<String> childBreadcrumbs;
   final bool selecting;
   final bool selected;
@@ -584,6 +642,7 @@ class _ContainerTile extends StatelessWidget {
     required this.roomId,
     required this.id,
     required this.name,
+    required this.coverImageId,
     required this.childBreadcrumbs,
     required this.selecting,
     required this.selected,
@@ -593,8 +652,10 @@ class _ContainerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const LeadingBox(
-        child: PlaceholderIcon(icon: Icons.inventory_2),
+      leading: ItemThumbnail(
+        credentials: credentials,
+        coverImageId: coverImageId,
+        placeholderIcon: Icons.inventory_2,
       ),
       title: Text(name),
       trailing: selecting

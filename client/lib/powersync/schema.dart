@@ -24,10 +24,14 @@ const schema = Schema([
     'image',
     [
       Column.text('item_id'),
+      Column.text('container_id'),
+      Column.text('room_id'),
       Column.integer('created_at'), // epoch millis; determines cover order
     ],
     indexes: [
       Index('image_item_id', [IndexedColumn.ascending('item_id')]),
+      Index('image_container_id', [IndexedColumn.ascending('container_id')]),
+      Index('image_room_id', [IndexedColumn.ascending('room_id')]),
     ],
   ),
   // See backend/migrations/0004_paired_device.sql. No revoked_at column:
