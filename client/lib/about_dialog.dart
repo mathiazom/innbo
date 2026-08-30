@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:powersync/powersync.dart' hide Column;
 
+import 'backup/backup_screen.dart';
 import 'device_credentials.dart';
 import 'devices/device_overview_screen.dart';
 import 'items/upload_queue.dart';
@@ -86,22 +87,45 @@ Future<void> showAboutAppDialog(
                 return Text('Serverversjon: $text');
               },
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _SettingsTile(
+                    icon: Icons.archive_outlined,
+                    label: 'Sikkerhetskopi',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => BackupScreen(db: db)),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SettingsTile(
+                    icon: Icons.devices_outlined,
+                    label: 'Enheter',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DeviceOverviewScreen(
+                            db: db,
+                            credentials: credentials,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    DeviceOverviewScreen(db: db, credentials: credentials),
-              ),
-            );
-          },
-          child: const Text('Vis alle enheter'),
-        ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Lukk'),
@@ -109,6 +133,37 @@ Future<void> showAboutAppDialog(
       ],
     ),
   );
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [Icon(icon), const SizedBox(height: 4), Text(label)],
+        ),
+      ),
+    );
+  }
 }
 
 class _ErrorCodeBlock extends StatelessWidget {

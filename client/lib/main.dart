@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 
+import 'backup/backup_export.dart';
 import 'client_version.dart';
 import 'device_credentials.dart';
 import 'devices/device_status_sync.dart';
@@ -124,6 +125,7 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
           VersionGuard(
             mustUpdate: false,
             pendingCount: pendingCount,
+            onBackup: () => exportAndShareBackup(db),
             onDiscard: () async {
               await db.disconnectAndClear();
               await StoredSchemaVersion.write(kClientVersion);
@@ -161,6 +163,9 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
           VersionGuard(
             mustUpdate: true,
             pendingCount: pendingCount,
+            onBackup: pendingCount == 0
+                ? null
+                : () => exportAndShareBackup(database),
             onDiscard: pendingCount == 0
                 ? null
                 : () async {

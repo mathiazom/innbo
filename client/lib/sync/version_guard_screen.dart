@@ -22,10 +22,17 @@ class VersionGuard {
   /// auto-discards.
   final Future<void> Function()? onDiscard;
 
+  /// Null when there's nothing worth backing up (mirrors [onDiscard]'s
+  /// null case). Lets the user export the not-yet-synced local data
+  /// before it's discarded — entirely independent of [onDiscard]: running
+  /// it does not discard anything, and discarding still needs its own tap.
+  final Future<void> Function()? onBackup;
+
   const VersionGuard({
     required this.mustUpdate,
     required this.pendingCount,
     this.onDiscard,
+    this.onBackup,
   });
 }
 
@@ -43,6 +50,7 @@ class VersionGuardScreen extends StatefulWidget {
 
 class _VersionGuardScreenState extends State<VersionGuardScreen> {
   bool _discarding = false;
+  bool _backingUp = false;
 
   String get _message {
     final guard = widget.guard;
@@ -66,6 +74,7 @@ class _VersionGuardScreenState extends State<VersionGuardScreen> {
   @override
   Widget build(BuildContext context) {
     final onDiscard = widget.guard.onDiscard;
+    final onBackup = widget.guard.onBackup;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -83,20 +92,49 @@ class _VersionGuardScreenState extends State<VersionGuardScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(_message, textAlign: TextAlign.center),
-                if (onDiscard != null) ...[
+                if (onBackup != null || onDiscard != null) ...[
                   const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _discarding
-                        ? null
-                        : () async {
-                            setState(() => _discarding = true);
-                            await onDiscard();
-                          },
-                    child: Text(
-                      widget.guard.mustUpdate
-                          ? 'Forkast endringene'
-                          : 'Forkast',
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onBackup != null) ...[
+                        OutlinedButton(
+                          onPressed: _backingUp
+                              ? null
+                              : () async {
+                                  setState(() => _backingUp = true);
+                                  await onBackup();
+                                  if (mounted) {
+                                    setState(() => _backingUp = false);
+                                  }
+                                },
+                          child: _backingUp
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Sikkerhetskopier'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      if (onDiscard != null)
+                        FilledButton(
+                          onPressed: _discarding
+                              ? null
+                              : () async {
+                                  setState(() => _discarding = true);
+                                  await onDiscard();
+                                },
+                          child: Text(
+                            widget.guard.mustUpdate
+                                ? 'Forkast endringene'
+                                : 'Forkast',
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
