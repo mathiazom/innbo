@@ -2,8 +2,7 @@
 
 ## Slice workflow
 
-Every backlog slice (see `docs/BACKLOG.md`) goes through four distinct
-steps, in order:
+Every feature slice goes through four distinct steps, in order:
 
 1. **Grill** — use the `grilling` skill to interview the user and settle
    the slice's design (scope, edge cases, UI/data shape) via
