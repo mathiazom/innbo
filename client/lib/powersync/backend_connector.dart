@@ -17,7 +17,7 @@ class InnboBackendConnector extends PowerSyncBackendConnector {
   /// Called when the backend rejects this app version as mismatched (HTTP
   /// 426) — from fetchCredentials()'s /token call, or from uploadData()'s
   /// /upload call if a still-valid token outlives a version bump made
-  /// after it was minted. See lib/sync/unsynced_changes_guard.dart and
+  /// after it was minted. See lib/main.dart's `_finishConnecting` and
   /// docs/adr/0004-schema-migration-strategy.md.
   final Future<void> Function(PowerSyncDatabase database) onUpdateRequired;
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 
+import 'client_version.dart';
 import 'device_credentials.dart';
 import 'devices/device_status_sync.dart';
 import 'items/upload_queue.dart';
@@ -13,7 +14,8 @@ import 'pairing/pairing_screen.dart';
 import 'powersync/backend_connector.dart';
 import 'powersync/schema.dart';
 import 'rooms/room_list_screen.dart';
-import 'sync/unsynced_changes_guard.dart';
+import 'sync/stored_schema_version.dart';
+import 'sync/version_guard_screen.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -43,6 +45,7 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
   PowerSyncDatabase? _db;
   DeviceCredentials? _credentials;
   bool _loading = true;
+  VersionGuard? _guard;
   PairingLinkData? _pendingPairingLink;
   StreamSubscription<Uri>? _linkSubscription;
 
@@ -100,6 +103,11 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     setState(() => _loading = false);
   }
 
+  // Split into a pre-flight stale-queue check and the actual connect, so
+  // the stale-queue path (device already updated, leftover queue from
+  // before) can pause on a full-page guard before ever calling
+  // db.connect(), then resume via the guard's discard action. See
+  // docs/adr/0004-schema-migration-strategy.md.
   Future<void> _connect(DeviceCredentials credentials) async {
     final dir = await getApplicationSupportDirectory();
     final db = PowerSyncDatabase(schema: schema, path: '${dir.path}/innbo.db');
@@ -107,14 +115,65 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     await UploadQueue.ensureTable(db);
     await UploadQueue.backfill(db);
 
+    final storedVersion = await StoredSchemaVersion.read();
+    if (storedVersion != null && storedVersion != kClientVersion) {
+      final batch = await db.getCrudBatch();
+      final pendingCount = batch?.crud.length ?? 0;
+      if (pendingCount > 0) {
+        _showGuard(
+          VersionGuard(
+            mustUpdate: false,
+            pendingCount: pendingCount,
+            onDiscard: () async {
+              await db.disconnectAndClear();
+              await StoredSchemaVersion.write(kClientVersion);
+              setState(() => _guard = null);
+              await _finishConnecting(credentials, db);
+            },
+          ),
+        );
+        return; // _finishConnecting runs later, from onDiscard.
+      }
+    }
+    await StoredSchemaVersion.write(kClientVersion);
+    await _finishConnecting(credentials, db);
+  }
+
+  Future<void> _finishConnecting(
+    DeviceCredentials credentials,
+    PowerSyncDatabase db,
+  ) async {
     final connector = InnboBackendConnector(
       credentials: credentials,
       database: db,
       onUpdateRequired: (database) async {
-        final context = navigatorKey.currentContext;
-        if (context != null) {
-          await handleUpdateRequired(context, database);
-        }
+        // Note: deliberately doesn't call database.disconnect() here —
+        // this callback runs from inside PowerSync's own sync loop (via
+        // fetchCredentials/uploadData), and disconnect() waits for the
+        // current loop iteration to finish, which is this very call —
+        // a guaranteed deadlock. The sync loop's own retry/backoff simply
+        // keeps failing quietly in the background until the user
+        // discards (see onDiscard below, which runs from a button tap
+        // outside the loop's call stack) or updates the app.
+        final batch = await database.getCrudBatch();
+        final pendingCount = batch?.crud.length ?? 0;
+        _showGuard(
+          VersionGuard(
+            mustUpdate: true,
+            pendingCount: pendingCount,
+            onDiscard: pendingCount == 0
+                ? null
+                : () async {
+                    await database.disconnectAndClear();
+                    setState(
+                      () => _guard = VersionGuard(
+                        mustUpdate: true,
+                        pendingCount: 0,
+                      ),
+                    );
+                  },
+          ),
+        );
       },
     );
     await db.connect(connector: connector);
@@ -130,6 +189,16 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
     _connect(credentials);
   }
 
+  // MaterialApp.home only controls the bottom-most route — an open
+  // showDialog (e.g. the about dialog) sits on top of it on the same
+  // Navigator, so swapping `home` to the guard screen alone would leave
+  // it hidden behind whatever dialog happens to be open. Pop back to the
+  // base route first so the guard is actually visible.
+  void _showGuard(VersionGuard guard) {
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    setState(() => _guard = guard);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -139,14 +208,18 @@ class _InnboAppState extends State<InnboApp> with WidgetsBindingObserver {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6B4A2F)),
         useMaterial3: true,
       ),
-      home: _loading
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : (_db != null
-                ? RoomListScreen(db: _db!, credentials: _credentials!)
-                : PairingScreen(
-                    onPaired: _onPaired,
-                    initialPairingLink: _pendingPairingLink,
-                  )),
+      home: _guard != null
+          ? VersionGuardScreen(guard: _guard!)
+          : (_loading
+                ? const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  )
+                : (_db != null
+                      ? RoomListScreen(db: _db!, credentials: _credentials!)
+                      : PairingScreen(
+                          onPaired: _onPaired,
+                          initialPairingLink: _pendingPairingLink,
+                        ))),
     );
   }
 }
